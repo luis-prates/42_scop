@@ -1,6 +1,56 @@
 use std::ops::{Add, Sub, Mul, Div, AddAssign, Neg, Index, IndexMut};
 
 #[derive(Debug, Clone, Copy)]
+pub struct Vector2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Vector2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Vector2 { x, y }
+    }
+
+    pub fn zero() -> Self {
+        Vector2 { x: 0.0, y: 0.0 }
+    }
+
+    pub fn magnitude(&self) -> f32 {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    pub fn normalize(&self) -> Vector2 {
+        let magnitude = self.magnitude();
+        if magnitude != 0.0 {
+            Vector2 {
+                x: self.x / magnitude,
+                y: self.y / magnitude,
+            }
+        } else {
+            Vector2::zero()
+        }
+    }
+
+    pub fn dot(&self, other: Vector2) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    pub fn add(&self, other: Vector2) -> Vector2 {
+        Vector2 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+
+    pub fn subtract(&self, other: Vector2) -> Vector2 {
+        Vector2 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Vector3 {
 	pub x: f32,
 	pub y: f32,

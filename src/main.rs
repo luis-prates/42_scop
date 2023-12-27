@@ -6,6 +6,8 @@ mod camera;
 mod model;
 mod mesh;
 mod math;
+mod my_bmp_loader;
+mod bmp_loader;
 
 mod _3_model_loading;
 use _3_model_loading::*;

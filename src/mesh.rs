@@ -3,13 +3,13 @@ use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
-use cgmath::{ Vector3, Vector2 };
-use cgmath::prelude::*;
 use gl;
 
 use crate::shader;
+use crate::math;
 
 use shader::Shader;
+use math::{ Vector2, Vector3 };
 
 // NOTE: without repr(C) the compiler may reorder the fields or use different padding/alignment than C.
 // Depending on how you pass the data to OpenGL, this may be bad. In this case it's not strictly
@@ -17,19 +17,19 @@ use shader::Shader;
 #[repr(C)]
 pub struct Vertex {
 	// position
-	pub position: Vector3<f32>,
+	pub position: Vector3,
 	// normal
-	pub normal: Vector3<f32>,
+	pub normal: Vector3,
 	// texCoords
-	pub tex_coords: Vector2<f32>,
+	pub tex_coords: Vector2,
 	// tangent
-	pub tangent: Vector3<f32>,
+	pub tangent: Vector3,
 	// bitangent
-	pub bitangent: Vector3<f32>,
+	pub bitangent: Vector3,
 	// color
-	pub color: Vector3<f32>,
+	pub color: Vector3,
 	// new color
-	pub new_color: Vector3<f32>,
+	pub new_color: Vector3,
 }
 
 impl Default for Vertex {

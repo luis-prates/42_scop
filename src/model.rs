@@ -1,20 +1,24 @@
 use std::os::raw::c_void;
 use std::path::Path;
 
-use cgmath::{InnerSpace, vec2, vec3};
 use gl;
 use image;
 use image::DynamicImage::*;
 use image::GenericImage;
 use tobj;
 
+use crate::bmp_loader;
 use crate::shader;
 use crate::mesh;
-use cgmath::{ Vector3, Vector2 };
+use crate::math;
+use crate::my_bmp_loader;
 
 use mesh::{ Mesh, Texture, Vertex };
 use shader::Shader;
+use math::{ Vector2, Vector3 };
 use crate::common::load_texture;
+use my_bmp_loader::load_texture_bmp;
+use crate::bmp_loader::open;
 
 #[derive(Default)]
 pub struct Model {
@@ -53,7 +57,7 @@ impl Model {
 		(center_x, center_y, center_z)
 	}
 
-	pub fn change_color(&mut self, new_color: &Vector3<f32>) {
+	pub fn change_color(&mut self, new_color: &Vector3) {
 		for (i, vertice) in &mut self.meshes[0].vertices.iter_mut().enumerate() {
 			vertice.color = vertice.new_color;
 			vertice.new_color.x = new_color.x + (i / 3) as f32 * 0.05;
@@ -120,16 +124,16 @@ impl Model {
             let (p, n, t) = (&mesh.positions, &mesh.normals, &mesh.texcoords);
             for i in 0..num_vertices {
 				let mut vertexx = Vertex::default();
-				vertexx.position = vec3(p[i*3], p[i*3+1], p[i*3+2]);
+				vertexx.position = Vector3::new(p[i*3], p[i*3+1], p[i*3+2]);
 				if &mesh.normals.len() == &mesh.positions.len() {
-					vertexx.normal = vec3(n[i*3], n[i*3+1], n[i*3+2]);
+					vertexx.normal = Vector3::new(n[i*3], n[i*3+1], n[i*3+2]);
 				}
 				if &mesh.texcoords.len() > &0 {
-					vertexx.tex_coords = vec2(t[i*2], t[i*2+1]);
+					vertexx.tex_coords = Vector2::new(t[i*2], t[i*2+1]);
 				} else {
 					vertexx.tex_coords = generate_texture_coordinates(&vertexx.position);
 					// println!("tex coords are: {:?}", vertexx.tex_coords);
-					vertexx.color = vec3(self.base_color_x + (i / 3) as f32 * 0.05, self.base_color_y + (i / 3) as f32 * 0.05, self.base_color_z + (i / 3) as f32 * 0.05);
+					vertexx.color = Vector3::new(self.base_color_x + (i / 3) as f32 * 0.05, self.base_color_y + (i / 3) as f32 * 0.05, self.base_color_z + (i / 3) as f32 * 0.05);
 					vertexx.new_color = vertexx.color;
 				}
 				vertices.push(vertexx);
@@ -149,9 +153,9 @@ impl Model {
                 } else {
 					println!("No texture. Setting default");
 					let texture = Texture {
-						id: unsafe { load_texture("resources/textures/container2.png") },
+						id: unsafe { load_texture_bmp("resources/bmps/lena.bmp") },
 						type_: "texture_diffuse".into(),
-						path: "resources/textures/container2.png".into()
+						path: "resources/bmps/lena.bmp".into()
 					};
 					self.textures_loaded.push(texture.clone());
 					textures.push(texture);
@@ -225,7 +229,7 @@ unsafe fn texture_from_file(path: &str, directory: &str) -> u32 {
 	texture_id
 }
 
-fn generate_texture_coordinates(vertex: &Vector3<f32>) -> Vector2<f32> {
+fn generate_texture_coordinates(vertex: &Vector3) -> Vector2 {
 	let mut tex_coords = Vector2::new(0.0, 0.0);
 	let u = (vertex.x + 1.0) / 2.0; // Map x to [0, 1]
 	let v = (vertex.y + 1.0) / 2.0; // Map y to [0, 1]

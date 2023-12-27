@@ -1,6 +1,5 @@
 extern crate glfw;
 
-use cgmath::{ vec3, Deg, InnerSpace};
 use glfw::Glfw;
 use glfw::{Key, Action};
 use rand::Rng;
@@ -260,7 +259,7 @@ fn process_local_input(
 	
 	if window.get_key(Key::K) == Action::Press && current_time - *last_time > delay_time {
 		*new_mix = 0.0;
-		our_model.change_color(&vec3(
+		our_model.change_color(&&Vector3::new(
 			rand::thread_rng().gen_range(0.0, 1.1),
 			rand::thread_rng().gen_range(0.0, 1.1),
 			rand::thread_rng().gen_range(0.0, 1.1),
