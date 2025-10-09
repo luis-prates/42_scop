@@ -2,12 +2,11 @@ use std::os::raw::c_void;
 use std::path::Path;
 
 use gl;
-use image;
-use image::DynamicImage::*;
-use image::GenericImage;
+// use image;
+// use image::DynamicImage::*;
+// use image::GenericImage;
 use tobj;
 
-use crate::bmp_loader;
 use crate::shader;
 use crate::mesh;
 use crate::math;
@@ -16,9 +15,7 @@ use crate::my_bmp_loader;
 use mesh::{ Mesh, Texture, Vertex };
 use shader::Shader;
 use math::{ Vector2, Vector3 };
-use crate::common::load_texture;
 use my_bmp_loader::load_texture_bmp;
-use crate::bmp_loader::open;
 
 #[derive(Default)]
 pub struct Model {
@@ -115,6 +112,7 @@ impl Model {
         let (models, materials) = obj.unwrap();
         for model in models {
             let mesh = &model.mesh;
+
             let num_vertices = mesh.positions.len() / 3;
 
             // data to fill
@@ -131,8 +129,9 @@ impl Model {
 				if &mesh.texcoords.len() > &0 {
 					vertexx.tex_coords = Vector2::new(t[i*2], t[i*2+1]);
 				} else {
-					vertexx.tex_coords = generate_texture_coordinates(&vertexx.position);
-					// println!("tex coords are: {:?}", vertexx.tex_coords);
+					let (a, b) = (vertexx.position.y, vertexx.position.z);
+					// let b = vertexx.position.z;
+					vertexx.tex_coords = Vector2::new(a, b);
 					vertexx.color = Vector3::new(self.base_color_x + (i / 3) as f32 * 0.05, self.base_color_y + (i / 3) as f32 * 0.05, self.base_color_z + (i / 3) as f32 * 0.05);
 					vertexx.new_color = vertexx.color;
 				}
@@ -153,9 +152,9 @@ impl Model {
                 } else {
 					println!("No texture. Setting default");
 					let texture = Texture {
-						id: unsafe { load_texture_bmp("resources/bmps/lena.bmp") },
+						id: unsafe { load_texture_bmp("resources/bmps/brickwall.bmp") },
 						type_: "texture_diffuse".into(),
-						path: "resources/bmps/lena.bmp".into()
+						path: "resources/bmps/brickwall.bmp".into()
 					};
 					self.textures_loaded.push(texture.clone());
 					textures.push(texture);
@@ -190,7 +189,7 @@ impl Model {
 		}
 
 		let texture = Texture {
-			id: unsafe { texture_from_file(path, &self.directory) },
+			id: unsafe { load_texture_bmp(path) },
 			type_: type_name.into(),
 			path: path.into()
 		};
@@ -199,41 +198,42 @@ impl Model {
 	}
 }
 	
-unsafe fn texture_from_file(path: &str, directory: &str) -> u32 {
-	let filename = format!("{}/{}", directory, path);
+// unsafe fn texture_from_file(path: &str, directory: &str) -> u32 {
+// 	let filename = format!("{}/{}", directory, path);
 
-	let mut texture_id = 0;
-	gl::GenTextures(1, &mut texture_id);
+// 	let mut texture_id = 0;
+// 	gl::GenTextures(1, &mut texture_id);
 
-	let img = image::open(&Path::new(&filename)).expect("Texture failed to load");
-	let img = img.flipv();
-	let format = match img {
-		ImageLuma8(_) => gl::RED,
-		ImageLumaA8(_) => gl::RG,
-		ImageRgb8(_) => gl::RGB,
-		ImageRgba8(_) => gl::RGBA,
-	};
+// 	let img = image::open(&Path::new(&filename)).expect("Texture failed to load");
+// 	let img = img.flipv();
+// 	let format = match img {
+// 		ImageLuma8(_) => gl::RED,
+// 		ImageLumaA8(_) => gl::RG,
+// 		ImageRgb8(_) => gl::RGB,
+// 		ImageRgba8(_) => gl::RGBA,
+// 	};
 
-	let data = img.raw_pixels();
+// 	let data = img.raw_pixels();
 
-	gl::BindTexture(gl::TEXTURE_2D, texture_id);
-	gl::TexImage2D(gl::TEXTURE_2D, 0, format as i32, img.width() as i32, img.height() as i32,
-		0, format, gl::UNSIGNED_BYTE, &data[0] as *const u8 as *const c_void);
-	gl::GenerateMipmap(gl::TEXTURE_2D);
+// 	gl::BindTexture(gl::TEXTURE_2D, texture_id);
+// 	gl::TexImage2D(gl::TEXTURE_2D, 0, format as i32, img.width() as i32, img.height() as i32,
+// 		0, format, gl::UNSIGNED_BYTE, &data[0] as *const u8 as *const c_void);
+// 	gl::GenerateMipmap(gl::TEXTURE_2D);
 
-	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
-	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+// 	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+// 	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+// 	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as i32);
+// 	gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
 
-	texture_id
-}
+// 	texture_id
+// }
 
 fn generate_texture_coordinates(vertex: &Vector3) -> Vector2 {
 	let mut tex_coords = Vector2::new(0.0, 0.0);
-	let u = (vertex.x + 1.0) / 2.0; // Map x to [0, 1]
-	let v = (vertex.y + 1.0) / 2.0; // Map y to [0, 1]
-	tex_coords.x = u;
-	tex_coords.y = v;
+	let u = (vertex.y + 1.0) / 2.0; // Map x to [0, 1]
+	let v = (vertex.z + 1.0) / 2.0; // Map y to [0, 1]
+	tex_coords.x = vertex.y;
+	tex_coords.y = vertex.z;
+	// tex_coords
 	tex_coords.normalize()
 }

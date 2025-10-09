@@ -19,7 +19,7 @@ impl Vector2 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    pub fn normalize(&self) -> Vector2 {
+    pub fn normalize(self) -> Vector2 {
         let magnitude = self.magnitude();
         if magnitude != 0.0 {
             Vector2 {

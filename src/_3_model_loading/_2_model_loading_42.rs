@@ -22,7 +22,7 @@ use shader::Shader;
 use camera::Camera;
 use model::Model;
 
-extern crate image;
+// extern crate image;
 
 // settings
 const SCR_WIDTH: u32 = 800;
@@ -79,7 +79,7 @@ pub fn main_3_2() {
     // ---------------------------------------
     gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
 
-	let (our_shader, mut our_model, our_model2) = unsafe {
+	let (our_shader, mut our_model) = unsafe {
 
 		gl::Enable(gl::DEPTH_TEST);
 
@@ -89,14 +89,14 @@ pub fn main_3_2() {
 		);
 
 		// load models
-		let our_model = Model::new("resources/textures/42.obj");
-		let our_model2: Model = Model::new("resources/objects/planet/planet.obj");
+		let our_model = Model::new("resources/objects/globe-earth.obj");
+		// let our_model2: Model = Model::new("resources/objects/planet/planet.obj");
 		// let our_model: Model = Model::new("resources/objects/nanosuit/nanosuit.obj");
 
 		// draw in wireframe
         // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
 
-		(our_shader, our_model, our_model2)
+		(our_shader, our_model)
 	};
 
 	let mut position = Vector3::new(0.0, 0.0, 0.0);
@@ -185,13 +185,13 @@ pub fn main_3_2() {
 			gl::Uniform1i(gl::GetUniformLocation(our_shader.id, use_texturing.as_ptr()), 1);
 			gl::Uniform1f(gl::GetUniformLocation(our_shader.id, use_mix.as_ptr()), 0.0);
 
-			let (center_x, center_y, center_z) = our_model2.get_center_all_axes();
-			let mut model = Matrix4::from_scale(0.2);
-			model = model * Matrix4::from_translation(Vector3::new(5.0, 1.75, 0.0));
-			model = model * Matrix4::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), angle);
-			model = model * Matrix4::from_translation(Vector3::new(-center_x, -center_y, -center_z));
-			our_shader.set_mat4(c_str!("model"), &model);
-			our_model2.draw(&our_shader);
+			// let (center_x, center_y, center_z) = our_model2.get_center_all_axes();
+			// let mut model = Matrix4::from_scale(0.2);
+			// model = model * Matrix4::from_translation(Vector3::new(5.0, 1.75, 0.0));
+			// model = model * Matrix4::from_axis_angle(Vector3::new(1.0, 0.0, 0.0), angle);
+			// model = model * Matrix4::from_translation(Vector3::new(-center_x, -center_y, -center_z));
+			// our_shader.set_mat4(c_str!("model"), &model);
+			// our_model2.draw(&our_shader);
 
         }
 

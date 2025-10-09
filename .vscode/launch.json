@@ -1,0 +1,45 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'scop_42'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=scop_42",
+					"--package=scop_42"
+				],
+				"filter": {
+					"name": "scop_42",
+					"kind": "bin"
+				}
+			},
+			"args": [ "3_2" ],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'scop_42'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=scop_42",
+					"--package=scop_42"
+				],
+				"filter": {
+					"name": "scop_42",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

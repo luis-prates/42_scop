@@ -12,8 +12,5 @@ uniform float newMix;
 
 void main()
 {
-	// if (useTexturing == 1)
-    // 	FragColor = texture(texture_diffuse1, TexCoords);
-	// else
-		FragColor = mix(texture(texture_diffuse1, TexCoords), mix(vec4(ourColor, 1.0f), vec4(newColor, 1.0f), newMix), mixValue);
+	FragColor = mix(texture(texture_diffuse1, TexCoords), mix(vec4(ourColor, 1.0f), vec4(newColor, 1.0f), newMix), mixValue);
 }

@@ -1,9 +1,4 @@
-// extern crate byteorder;
-
-// use byteorder::{LittleEndian, ReadBytesExt};
-
 use std::convert::{From, AsRef};
-use std::error::Error;
 use std::fmt;
 use std::io::{self, Cursor, Read, SeekFrom, Seek};
 use crate::px;
@@ -13,7 +8,6 @@ use crate::px;
 const BMP_HEADER_SIZE: u64 = 14;
 
 // Import structs/functions defined in lib.rs
-// use super::*;
 use super::mini_bmp_module::{Image, BmpDibHeader, BmpHeader, BmpVersion, CompressionType, Pixel};
 use self::BmpErrorKind::*;
 
@@ -42,7 +36,7 @@ impl fmt::Display for BmpError {
             BmpIoError(ref error) => error.fmt(fmt),
             ref e => {
                 let kind_desc: &str = e.as_ref();
-                write!(fmt, "{}: {}", kind_desc, self.description())
+                write!(fmt, "{}: {}", kind_desc, self.to_string())
             }
         }
     }
@@ -51,15 +45,6 @@ impl fmt::Display for BmpError {
 impl From<io::Error> for BmpError {
     fn from(err: io::Error) -> BmpError {
         BmpError::new(BmpIoError(err), "Io Error")
-    }
-}
-
-impl Error for BmpError {
-    fn description(&self) -> &str {
-        match self.kind {
-            BmpIoError(ref e) => e.description(),
-            _ => &self.details,
-        }
     }
 }
 
