@@ -19,7 +19,7 @@
 					"kind": "bin"
 				}
 			},
-			"args": [ "3_2" ],
+			"args": [ "resources/models/42.obj", "resources/textures/brickwall.bmp" ],
 			"cwd": "${workspaceFolder}"
 		},
 		{

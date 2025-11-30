@@ -1,21 +1,13 @@
 [package]
 name = "scop_42"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gl = "0.10.0"
-glfw = "0.23.0"
-# image = "0.19.0"
-# only needed from chapter 3 on
-tobj = "0.1.6"
-num = "0.2.0"
-rand = "0.5.5"
-
-[dev-dependencies]
-imagine = "0.0.5"
+gl = "0.14.0"
+glfw = "0.60.0"
 
 [profile.release]
 opt-level = 1

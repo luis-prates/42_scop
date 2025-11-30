@@ -12,14 +12,15 @@ use camera::Camera;
 
 use std::path::Path;
 use std::os::raw::c_void;
+use glfw::{GlfwReceiver, WindowEvent};
 
 /// Event processing function as introduced in 1.7.4 (Camera Class) and used in
 /// most later tutorials
-pub fn process_events(events: &Receiver<(f64, glfw::WindowEvent)>,
-                  first_mouse: &mut bool,
-                  last_x: &mut f32,
-                  last_y: &mut f32,
-                  camera: &mut Camera) {
+pub fn process_events(events: &GlfwReceiver<(f64, WindowEvent)>,
+                      first_mouse: &mut bool,
+                      last_x: &mut f32,
+                      last_y: &mut f32,
+                      camera: &mut Camera) {
     for (_, event) in glfw::flush_messages(events) {
         match event {
             glfw::WindowEvent::FramebufferSize(width, height) => {

@@ -1,29 +1,26 @@
-
-mod common;
-mod shader;
-mod macros;
-mod camera;
-mod model;
-mod mesh;
-mod math;
-mod my_bmp_loader;
 mod bmp_loader;
+mod camera;
+mod common;
+mod macros;
+mod math;
+mod mesh;
+mod model;
+mod my_bmp_loader;
+mod obj_loader;
+mod rng;
+mod shader;
 
-mod _3_model_loading;
-use _3_model_loading::*;
+mod model_loading;
+use model_loading::*;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args = std::env::args().collect::<Vec<String>>();
     if args.len() != 2 {
-        println!("Call with the number of the tutorial, e.g. `1_1_2` for _1_2_hello_window_clear.rs");
-        std::process::exit(1);
-    }
-    let tutorial_id = &args[1];
-
-    match tutorial_id.as_str() {
-		// #[cfg(feature = "chapter-3")] "3_1"   => main_3_1(),
-		"3_2"   => main_3_2(),
-
-        _     => println!("Unknown tutorial id")
+        start_renderer(
+            args.get(1).map(|s| s.as_str()).unwrap(),
+            args.get(2).map(|s| s.as_str()).unwrap(),
+        );
+    } else {
+        println!("Usage: cargo run -- <path_to_model> <path_to_texture>");
     }
 }

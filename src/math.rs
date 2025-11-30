@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div, AddAssign, Neg, Index, IndexMut};
+use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vector2 {
@@ -52,49 +52,48 @@ impl Vector2 {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vector3 {
-	pub x: f32,
-	pub y: f32,
-	pub z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point3 {
-	pub x: f32,
-	pub y: f32,
-	pub z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl Sub<Point3> for Point3 {
-	type Output = Vector3;
+    type Output = Vector3;
 
-	fn sub(self, rhs: Point3) -> Self::Output {
-		Vector3 {
-			x: self.x - rhs.x,
-			y: self.y - rhs.y,
-			z: self.z - rhs.z,
-		}
-	}
+    fn sub(self, rhs: Point3) -> Self::Output {
+        Vector3 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
+    }
 }
 
 impl Add<Vector3> for Point3 {
-	type Output = Point3;
+    type Output = Point3;
 
-	fn add(self, rhs: Vector3) -> Self::Output {
-		Point3 {
-			x: self.x + rhs.x,
-			y: self.y + rhs.y,
-			z: self.z + rhs.z,
-		}
-	}
+    fn add(self, rhs: Vector3) -> Self::Output {
+        Point3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
 }
 
 impl AddAssign<Vector3> for Point3 {
-
-	fn add_assign(&mut self, rhs: Vector3) {
-		self.x += rhs.x;
+    fn add_assign(&mut self, rhs: Vector3) {
+        self.x += rhs.x;
         self.y += rhs.y;
         self.z += rhs.z;
-	}
+    }
 }
 
 // Point3 operations
@@ -103,7 +102,7 @@ impl Point3 {
         Point3 { x, y, z }
     }
 
-	pub fn to_vec(&self) -> Vector3 {
+    pub fn to_vec(&self) -> Vector3 {
         Vector3 {
             x: self.x,
             y: self.y,
@@ -130,7 +129,7 @@ impl Vector4 {
         Vector4 { x, y, z, w }
     }
 
-	pub fn dot(self, rhs: Vector4) -> f32 {
+    pub fn dot(self, rhs: Vector4) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
 }
@@ -164,7 +163,7 @@ impl Add for Vector4 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Matrix4 {
-	/// The first column of the matrix.
+    /// The first column of the matrix.
     pub x: Vector4,
     /// The second column of the matrix.
     pub y: Vector4,
@@ -176,28 +175,36 @@ pub struct Matrix4 {
 
 // Vector 3 operations
 impl Vector3 {
-	pub fn new(x: f32, y: f32, z: f32) -> Self {
-		Vector3 { x, y, z }
-	}
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Vector3 { x, y, z }
+    }
 
-	pub fn zero() -> Self {
-        Vector3 { x: 0.0, y: 0.0, z: 0.0 }
+    pub fn zero() -> Self {
+        Vector3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 
     pub fn unit_y() -> Self {
-        Vector3 { x: 0.0, y: 1.0, z: 0.0 }
+        Vector3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        }
     }
 
-	pub fn normalize(&self) -> Vector3 {
-		let length = (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt();
-		Vector3 {
-			x: self.x / length,
-			y: self.y / length,
-			z: self.z / length,
-		}
-	}
+    pub fn normalize(&self) -> Vector3 {
+        let length = (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt();
+        Vector3 {
+            x: self.x / length,
+            y: self.y / length,
+            z: self.z / length,
+        }
+    }
 
-	pub fn cross(self, rhs: Vector3) -> Vector3 {
+    pub fn cross(self, rhs: Vector3) -> Vector3 {
         Vector3 {
             x: self.y * rhs.z - self.z * rhs.y,
             y: self.z * rhs.x - self.x * rhs.z,
@@ -205,7 +212,7 @@ impl Vector3 {
         }
     }
 
-	pub fn as_ptr(&self) -> *const f32 {
+    pub fn as_ptr(&self) -> *const f32 {
         // The vector is represented as a contiguous array of f32 values,
         // so we can obtain a pointer to the first element of the array.
         &self.x as *const f32
@@ -286,11 +293,11 @@ impl Neg for Vector3 {
 
 // Matrix4 operations
 impl Matrix4 {
-	pub fn new(x: Vector4, y: Vector4, z: Vector4, w: Vector4) -> Self {
+    pub fn new(x: Vector4, y: Vector4, z: Vector4, w: Vector4) -> Self {
         Matrix4 { x, y, z, w }
     }
 
-	pub fn identity() -> Self {
+    pub fn identity() -> Self {
         Matrix4 {
             x: Vector4::new(1.0, 0.0, 0.0, 0.0),
             y: Vector4::new(0.0, 1.0, 0.0, 0.0),
@@ -299,7 +306,7 @@ impl Matrix4 {
         }
     }
 
-	pub fn from_scale(scale: f32) -> Self {
+    pub fn from_scale(scale: f32) -> Self {
         Matrix4 {
             x: Vector4::new(scale, 0.0, 0.0, 0.0),
             y: Vector4::new(0.0, scale, 0.0, 0.0),
@@ -308,7 +315,7 @@ impl Matrix4 {
         }
     }
 
-	pub fn from_translation(translation: Vector3) -> Self {
+    pub fn from_translation(translation: Vector3) -> Self {
         Matrix4 {
             x: Vector4::new(1.0, 0.0, 0.0, 0.0),
             y: Vector4::new(0.0, 1.0, 0.0, 0.0),
@@ -317,7 +324,7 @@ impl Matrix4 {
         }
     }
 
-	pub fn from_axis_angle(axis: Vector3, angle_degrees: f32) -> Self {
+    pub fn from_axis_angle(axis: Vector3, angle_degrees: f32) -> Self {
         let angle_radians = angle_degrees.to_radians();
         let cos_a = angle_radians.cos();
         let sin_a = angle_radians.sin();
@@ -359,7 +366,7 @@ impl Matrix4 {
         }
     }
 
-	pub fn perspective(fov_degrees: f32, aspect_ratio: f32, near: f32, far: f32) -> Self {
+    pub fn perspective(fov_degrees: f32, aspect_ratio: f32, near: f32, far: f32) -> Self {
         let f = 1.0 / (fov_degrees.to_radians() / 2.0).tan();
         let depth = far - near;
 
@@ -371,7 +378,7 @@ impl Matrix4 {
         }
     }
 
-	fn get_column(&self, col: usize) -> Vector4 {
+    fn get_column(&self, col: usize) -> Vector4 {
         match col {
             0 => Vector4::new(self.x.x, self.y.x, self.z.x, self.w.x),
             1 => Vector4::new(self.x.y, self.y.y, self.z.y, self.w.y),
@@ -381,31 +388,30 @@ impl Matrix4 {
         }
     }
 
-	pub fn as_ptr(&self) -> *const f32 {
+    pub fn as_ptr(&self) -> *const f32 {
         &self.x.x as *const f32
     }
 
-	pub fn from_cols(x: Vector4, y: Vector4, z: Vector4, w: Vector4) -> Self {
+    pub fn from_cols(x: Vector4, y: Vector4, z: Vector4, w: Vector4) -> Self {
         Matrix4 { x, y, z, w }
     }
 }
 
 impl Mul for Matrix4 {
-	type Output = Self;
+    type Output = Self;
 
-	fn mul(self, rhs: Self) -> Matrix4 {
+    fn mul(self, rhs: Self) -> Matrix4 {
         {
             let a = self[0];
             let b = self[1];
             let c = self[2];
             let d = self[3];
 
-            #[cfg_attr(rustfmt, rustfmt_skip)]
             Matrix4::from_cols(
-                a*rhs[0][0] + b*rhs[0][1] + c*rhs[0][2] + d*rhs[0][3],
-                a*rhs[1][0] + b*rhs[1][1] + c*rhs[1][2] + d*rhs[1][3],
-                a*rhs[2][0] + b*rhs[2][1] + c*rhs[2][2] + d*rhs[2][3],
-                a*rhs[3][0] + b*rhs[3][1] + c*rhs[3][2] + d*rhs[3][3],
+                a * rhs[0][0] + b * rhs[0][1] + c * rhs[0][2] + d * rhs[0][3],
+                a * rhs[1][0] + b * rhs[1][1] + c * rhs[1][2] + d * rhs[1][3],
+                a * rhs[2][0] + b * rhs[2][1] + c * rhs[2][2] + d * rhs[2][3],
+                a * rhs[3][0] + b * rhs[3][1] + c * rhs[3][2] + d * rhs[3][3],
             )
         }
     }
