@@ -193,7 +193,6 @@ impl Model {
             // process material
             let mut textures = Vec::new();
             if let Some(material_id) = mesh.material_id {
-                println!("Material id is: {}", material_id);
                 let material = &materials[material_id];
 
                 // 1. diffuse map

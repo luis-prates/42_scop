@@ -14,6 +14,15 @@ pub unsafe fn load_texture_bmp(texture_path: &str) -> u32 {
     let width = img.width;
     let height = img.height;
 
+    // Convert Vec<Pixel> to flat Vec<u8> for OpenGL
+    // OpenGL expects continuous RGB bytes, not a struct array
+    let mut rgb_data: Vec<u8> = Vec::with_capacity((width * height * 3) as usize);
+    for pixel in &img.data {
+        rgb_data.push(pixel.r);
+        rgb_data.push(pixel.g);
+        rgb_data.push(pixel.b);
+    }
+
     // Generate OpenGL texture
     unsafe {
         gl::GenTextures(1, &mut texture_id);
@@ -27,7 +36,7 @@ pub unsafe fn load_texture_bmp(texture_path: &str) -> u32 {
             0,
             gl::RGB,
             gl::UNSIGNED_BYTE,
-            img.data.as_ptr() as *const c_void,
+            rgb_data.as_ptr() as *const c_void,
         );
         gl::GenerateMipmap(gl::TEXTURE_2D);
 
