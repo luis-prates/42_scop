@@ -121,24 +121,6 @@ impl Mesh {
                 gl::BindTexture(gl::TEXTURE_2D, texture.id);
             }
 
-            // if self.textures.is_empty() {
-            // 	let sampler = CString::new("useTexturing").unwrap();
-            // 	gl::Uniform1i(gl::GetUniformLocation(shader.id, sampler.as_ptr()), 0);
-
-            // } else {
-            // 	let sampler = CString::new("useTexturing").unwrap();
-            // 	gl::Uniform1i(gl::GetUniformLocation(shader.id, sampler.as_ptr()), 1);
-            // }
-
-            /*if self.textures.is_empty() {
-                // println!("Texture is empty. Shader id is: {}", shader.id);
-                gl::ActiveTexture(gl::TEXTURE0);
-                let diffuse_map = load_texture("resources/textures/container2.png");
-                let sampler = CString::new("texture_diffuse1").unwrap();
-                gl::Uniform1i(gl::GetUniformLocation(shader.id, sampler.as_ptr()), 1);
-                gl::BindTexture(gl::TEXTURE_2D, diffuse_map);
-            }*/
-
             // draw mesh
             gl::BindVertexArray(self.vao);
             gl::DrawElements(
@@ -252,5 +234,21 @@ impl Mesh {
             gl::BindVertexArray(0);
         }
         // create buffers/arrays
+    }
+}
+
+impl Drop for Mesh {
+    fn drop(&mut self) {
+        unsafe {
+            if self.vao != 0 {
+                gl::DeleteVertexArrays(1, &self.vao);
+            }
+            if self.vbo != 0 {
+                gl::DeleteBuffers(1, &self.vbo);
+            }
+            if self.ebo != 0 {
+                gl::DeleteBuffers(1, &self.ebo);
+            }
+        }
     }
 }

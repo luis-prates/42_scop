@@ -1,4 +1,3 @@
-use std::os::raw::c_void;
 use std::path::Path;
 
 use crate::math;
@@ -26,10 +25,10 @@ pub struct Model {
 
 impl Model {
     /// constructor, expects a filepath to a 3D model.
-    pub fn new(model_path: &str, texture_path: &str) -> Model {
+    pub fn new(model_path: &str, texture_path: &str) -> Result<Model, String> {
         let mut model = Model::default();
-        model.load_model(model_path, texture_path);
-        model
+        model.load_model(model_path, texture_path)?;
+        Ok(model)
     }
 
     pub fn draw(&self, shader: &Shader) {
@@ -96,7 +95,7 @@ impl Model {
     }
 
     // loads a model from file and stores the resulting meshes in the meshes vector.
-    fn load_model(&mut self, model_path: &str, texture_path: &str) {
+    fn load_model(&mut self, model_path: &str, texture_path: &str) -> Result<(), String> {
         let path = Path::new(model_path);
 
         // retrieve the directory path of the filepath
@@ -104,7 +103,7 @@ impl Model {
             .parent()
             .unwrap_or_else(|| Path::new(""))
             .to_str()
-            .unwrap()
+            .ok_or_else(|| format!("Invalid UTF-8 in model path: {}", model_path))?
             .into();
         let obj = obj_loader::load_obj(
             path,
@@ -112,13 +111,13 @@ impl Model {
                 triangulate: true,
                 single_index: false,
             },
-        );
+        )?;
 
         // Default to medium grey so face-based color variations are visible
         self.base_color_x = 0.6;
         self.base_color_y = 0.6;
         self.base_color_z = 0.6;
-        let (models, materials) = obj.unwrap();
+        let (models, materials) = obj;
         let materials = materials.unwrap_or_default();
         for model in models {
             let mesh = &model.mesh;
@@ -274,6 +273,7 @@ impl Model {
 
             self.meshes.push(Mesh::new(vertices, indices, textures));
         }
+        Ok(())
     }
 
     fn load_material_texture(&mut self, texture_path: &str, type_name: &str) -> Texture {

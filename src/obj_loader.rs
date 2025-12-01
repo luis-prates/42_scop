@@ -43,10 +43,11 @@ pub fn load_obj(
     let mut texcoords: Vec<[f32; 2]> = Vec::new();
 
     // Face data: each face stores (position_idx, texcoord_idx, normal_idx) tuples
-    let mut faces: Vec<Vec<(usize, Option<usize>, Option<usize>)>> = Vec::new();
     let mut current_material: Option<String> = None;
-    let mut material_faces: HashMap<Option<String>, Vec<Vec<(usize, Option<usize>, Option<usize>)>>> =
-        HashMap::new();
+    let mut material_faces: HashMap<
+        Option<String>,
+        Vec<Vec<(usize, Option<usize>, Option<usize>)>>,
+    > = HashMap::new();
     let mut mtl_file: Option<String> = None;
 
     for line in reader.lines() {
@@ -92,8 +93,8 @@ pub fn load_obj(
             "f" => {
                 // Face
                 let mut face = Vec::new();
-                for i in 1..parts.len() {
-                    let indices: Vec<&str> = parts[i].split('/').collect();
+                for item in parts.iter().skip(1) {
+                    let indices: Vec<&str> = item.split('/').collect();
                     let pos_idx = indices[0].parse::<usize>().unwrap_or(1) - 1;
                     let tex_idx = if indices.len() > 1 && !indices[1].is_empty() {
                         Some(indices[1].parse::<usize>().unwrap_or(1) - 1)
@@ -115,13 +116,13 @@ pub fn load_obj(
                         let tri = vec![face[0], face[i], face[i + 1]];
                         material_faces
                             .entry(current_material.clone())
-                            .or_insert_with(Vec::new)
+                            .or_default()
                             .push(tri);
                     }
                 } else {
                     material_faces
                         .entry(current_material.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(face);
                 }
             }
@@ -143,11 +144,11 @@ pub fn load_obj(
 
     // Load materials if MTL file is specified
     let materials = if let Some(mtl_filename) = mtl_file {
-        let mtl_path = path.parent().unwrap_or_else(|| Path::new("")).join(mtl_filename);
-        match load_mtl(&mtl_path) {
-            Ok(mats) => Some(mats),
-            Err(_) => None,
-        }
+        let mtl_path = path
+            .parent()
+            .unwrap_or_else(|| Path::new(""))
+            .join(mtl_filename);
+        load_mtl(&mtl_path).ok()
     } else {
         None
     };
@@ -166,10 +167,14 @@ pub fn load_obj(
     let mut models = Vec::new();
 
     for (mat_name, mat_faces) in material_faces {
-        let material_id = mat_name.as_ref().and_then(|name| material_map.get(name).copied());
+        let material_id = mat_name
+            .as_ref()
+            .and_then(|name| material_map.get(name).copied());
 
-        let mut mesh = Mesh::default();
-        mesh.material_id = material_id;
+        let mut mesh = Mesh {
+            material_id,
+            ..Default::default()
+        };
 
         // Track unique vertices
         let mut vertex_map: HashMap<(usize, Option<usize>, Option<usize>), u32> = HashMap::new();
@@ -270,26 +275,26 @@ fn load_mtl(path: &Path) -> Result<Vec<Material>, String> {
             }
             "map_Kd" => {
                 // Diffuse texture
-                if parts.len() > 1 {
-                    if let Some(ref mut mat) = current_material {
-                        mat.diffuse_texture = Some(parts[1].to_string());
-                    }
+                if parts.len() > 1
+                    && let Some(ref mut mat) = current_material
+                {
+                    mat.diffuse_texture = Some(parts[1].to_string());
                 }
             }
             "map_Ks" => {
                 // Specular texture
-                if parts.len() > 1 {
-                    if let Some(ref mut mat) = current_material {
-                        mat.specular_texture = Some(parts[1].to_string());
-                    }
+                if parts.len() > 1
+                    && let Some(ref mut mat) = current_material
+                {
+                    mat.specular_texture = Some(parts[1].to_string());
                 }
             }
             "map_Bump" | "bump" => {
                 // Normal/bump texture
-                if parts.len() > 1 {
-                    if let Some(ref mut mat) = current_material {
-                        mat.normal_texture = Some(parts[1].to_string());
-                    }
+                if parts.len() > 1
+                    && let Some(ref mut mat) = current_material
+                {
+                    mat.normal_texture = Some(parts[1].to_string());
                 }
             }
             _ => {}

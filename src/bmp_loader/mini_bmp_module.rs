@@ -5,20 +5,24 @@ use std::convert::AsRef;
 use std::fmt;
 use std::fs;
 use std::io::{Cursor, Read};
-use std::path::Path;
 use std::iter::Iterator;
+use std::path::Path;
 
 use crate::bmp_loader::decoder;
 
 // Expose decoder's public types, structs, and enums
-pub use decoder::{BmpError, BmpErrorKind, BmpResult};
+pub use decoder::BmpResult;
 
 /// Macro to generate a `Pixel` from `r`, `g` and `b` values.
 #[macro_export]
 macro_rules! px {
     ($r:expr, $g:expr, $b:expr) => {
-        Pixel { r: $r as u8, g: $g as u8, b: $b as u8 }
-    }
+        Pixel {
+            r: $r as u8,
+            g: $g as u8,
+            b: $b as u8,
+        }
+    };
 }
 
 #[macro_export]
@@ -28,14 +32,11 @@ macro_rules! file_size {
         // find row size in bytes, round up to 4 bytes (padding)
         let row_size = (($bpp as f32 * $width as f32 + 31.0) / 32.0).floor() as u32 * 4;
         (header_size as u32, $height as u32 * row_size)
-    }}
+    }};
 }
 
 /// Common color constants accessible by names.
-
-
 /// The pixel data used in the `Image`.
-///
 /// It has three values for the `red`, `blue` and `green` color channels, respectively.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Pixel {
@@ -47,7 +48,7 @@ pub struct Pixel {
 impl Pixel {
     /// Creates a new `Pixel`.
     pub fn new(r: u8, g: u8, b: u8) -> Pixel {
-        Pixel { r: r, g: g, b: b }
+        Pixel { r, g, b }
     }
 }
 
@@ -176,8 +177,8 @@ impl BmpDibHeader {
         let (_, pixel_array_size) = file_size!(24, width, height);
         BmpDibHeader {
             header_size: 40,
-            width: width,
-            height: height,
+            width,
+            height,
             num_planes: 1,
             bits_per_pixel: 24,
             compress_type: 0,
@@ -230,10 +231,10 @@ impl Image {
             header: BmpHeader::new(header_size, data_size),
             dib_header: BmpDibHeader::new(width as i32, height as i32),
             color_palette: None,
-            width: width,
-            height: height,
+            width,
+            height,
             padding: width % 4,
-            data: data,
+            data,
         }
     }
 
@@ -287,7 +288,7 @@ impl Image {
     /// ```
     #[inline]
     pub fn coordinates(&self) -> ImageIndex {
-        ImageIndex::new(self.width as u32, self.height as u32)
+        ImageIndex::new(self.width, self.height)
     }
 }
 

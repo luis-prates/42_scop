@@ -98,12 +98,7 @@ impl Camera {
 
         // Make sure that when pitch is out of bounds, screen doesn't get flipped
         if constrain_pitch {
-            if self.pitch > 89.0 {
-                self.pitch = 89.0;
-            }
-            if self.pitch < -89.0 {
-                self.pitch = -89.0;
-            }
+            self.pitch = self.pitch.clamp(-89.0, 89.0);
         }
 
         // Update Front, Right and Up Vectors using the updated Eular angles
@@ -115,12 +110,7 @@ impl Camera {
         if self.zoom >= 1.0 && self.zoom <= 45.0 {
             self.zoom -= yoffset;
         }
-        if self.zoom <= 1.0 {
-            self.zoom = 1.0;
-        }
-        if self.zoom >= 45.0 {
-            self.zoom = 45.0;
-        }
+        self.zoom = self.zoom.clamp(1.0, 45.0);
     }
 
     /// Calculates the front vector from the Camera's (updated) Eular Angles
