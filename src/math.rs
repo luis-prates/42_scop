@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub};
 
 #[derive(Debug, Clone, Copy)]
@@ -102,7 +104,7 @@ impl Point3 {
         Point3 { x, y, z }
     }
 
-    pub fn to_vec(&self) -> Vector3 {
+    pub fn to_vec(self) -> Vector3 {
         Vector3 {
             x: self.x,
             y: self.y,

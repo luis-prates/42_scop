@@ -35,7 +35,11 @@ impl fmt::Display for BmpError {
             BmpIoError(ref error) => error.fmt(fmt),
             ref e => {
                 let kind_desc: &str = e.as_ref();
-                write!(fmt, "BmpError: {}", kind_desc)
+                if self.details.is_empty() {
+                    write!(fmt, "BmpError: {}", kind_desc)
+                } else {
+                    write!(fmt, "BmpError: {} ({})", kind_desc, self.details)
+                }
             }
         }
     }

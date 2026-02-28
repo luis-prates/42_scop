@@ -1,5 +1,6 @@
 // #![deny(warnings)]
 // #![cfg_attr(test, deny(warnings))]
+#![allow(dead_code)]
 
 use std::convert::AsRef;
 use std::fmt;

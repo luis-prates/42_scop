@@ -197,6 +197,7 @@ pub fn load_obj(
         // Track unique vertices.
         let mut vertex_map: HashMap<FaceVertex, u32> = HashMap::new();
         let mut next_index = 0u32;
+        let mut vertex_texcoords: Vec<Option<[f32; 2]>> = Vec::new();
 
         for face in mat_faces {
             if face.len() != 3 {
@@ -225,17 +226,22 @@ pub fn load_obj(
                         .unwrap_or([0.0, 0.0, 0.0]);
                     mesh.normals.extend_from_slice(&normal);
 
-                    // Always push UVs per vertex (default to zero when omitted).
-                    let texcoord = tex_idx
-                        .map(|texcoord_idx| texcoords[texcoord_idx])
-                        .unwrap_or([0.0, 0.0]);
-                    mesh.texcoords.extend_from_slice(&texcoord);
+                    // Track UVs, but only publish them if every vertex has valid coordinates.
+                    let texcoord = tex_idx.map(|texcoord_idx| texcoords[texcoord_idx]);
+                    vertex_texcoords.push(texcoord);
 
                     vertex_map.insert(vertex_key, idx);
                     idx
                 };
 
                 mesh.indices.push(index);
+            }
+        }
+
+        if vertex_texcoords.iter().all(|uv| uv.is_some()) {
+            for uv in vertex_texcoords {
+                let uv = uv.expect("checked above");
+                mesh.texcoords.extend_from_slice(&uv);
             }
         }
 

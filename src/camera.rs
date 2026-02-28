@@ -22,6 +22,7 @@ pub struct Camera {
     pub yaw: f32,
     pub pitch: f32,
     // Camera options
+    #[allow(dead_code)]
     pub movement_speed: f32,
     pub mouse_sensitivity: f32,
     pub zoom: f32,

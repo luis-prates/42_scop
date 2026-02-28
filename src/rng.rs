@@ -47,11 +47,13 @@ impl Rng {
     }
 
     /// Generate a random u32
+    #[allow(dead_code)]
     pub fn gen_u32(&mut self) -> u32 {
         self.next_u64() as u32
     }
 
     /// Generate a random u32 in a specific range [min, max]
+    #[allow(dead_code)]
     pub fn gen_range_u32(&mut self, min: u32, max: u32) -> u32 {
         if max <= min {
             return min;
@@ -91,12 +93,12 @@ mod tests {
 
         for _ in 0..100 {
             let val = rng.gen_range_f32(0.0, 1.0);
-            assert!(val >= 0.0 && val <= 1.0);
+            assert!((0.0..=1.0).contains(&val));
         }
 
         for _ in 0..100 {
             let val = rng.gen_range_f32(5.0, 10.0);
-            assert!(val >= 5.0 && val <= 10.0);
+            assert!((5.0..=10.0).contains(&val));
         }
     }
 

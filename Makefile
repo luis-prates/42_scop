@@ -100,6 +100,11 @@ fmt:
 	@echo "$(GREEN)Formatting code...$(NC)"
 	@$(CARGO) fmt
 
+# Run clippy with warnings denied
+clippy:
+	@echo "$(GREEN)Running clippy with -D warnings...$(NC)"
+	@$(CARGO) clippy --all-targets -- -D warnings
+
 # Documentation lint
 doclint:
 	@echo "$(GREEN)Linting project docs...$(NC)"
@@ -140,6 +145,7 @@ help:
 	@echo "$(YELLOW)Development targets:$(NC)"
 	@echo "  make test       - Run tests"
 	@echo "  make fmt        - Format code"
+	@echo "  make clippy     - Run clippy with warnings denied"
 	@echo "  make doclint    - Lint required docs and reviews banner rules"
 	@echo "  make verify     - Run doclint + fmt/check (+clippy when available)"
 	@echo "  make help       - Show this help"
