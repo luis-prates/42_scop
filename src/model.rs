@@ -142,6 +142,7 @@ impl Model {
                         .to_string(),
                 );
             }
+            let has_uv_mapping = !mesh.texcoords.is_empty();
 
             // data to fill
             let mut vertices: Vec<Vertex> = Vec::with_capacity(num_vertices);
@@ -179,7 +180,7 @@ impl Model {
                     vertex.normal = Vector3::new(n[i * 3], n[i * 3 + 1], n[i * 3 + 2]);
                 }
 
-                if !mesh.texcoords.is_empty() {
+                if has_uv_mapping {
                     vertex.tex_coords = Vector2::new(t[i * 2], t[i * 2 + 1]);
                 } else {
                     // Planar UV mapping: project XY plane to [0,1] texture space.
@@ -260,7 +261,8 @@ impl Model {
                 textures.push(texture);
             }
 
-            self.meshes.push(Mesh::new(vertices, indices, textures));
+            self.meshes
+                .push(Mesh::new(vertices, indices, textures, has_uv_mapping));
         }
 
         Ok(())

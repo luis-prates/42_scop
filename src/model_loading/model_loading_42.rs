@@ -26,6 +26,32 @@ use shader::Shader;
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
 const TEXTURE_BLEND_SPEED: f32 = 1.5;
+const DEFAULT_GENERATED_TEX_SCALE: f32 = 2.0;
+const GENERATED_TEX_SCALE_STEP: f32 = 0.25;
+const GENERATED_TEX_SCALE_MIN: f32 = 0.25;
+const GENERATED_TEX_SCALE_MAX: f32 = 16.0;
+
+struct InputState {
+    texture_enabled: bool,
+    texture_toggle_held: bool,
+    color_change_held: bool,
+    generated_tex_scale: f32,
+    increase_scale_held: bool,
+    decrease_scale_held: bool,
+}
+
+impl Default for InputState {
+    fn default() -> Self {
+        Self {
+            texture_enabled: false,
+            texture_toggle_held: false,
+            color_change_held: false,
+            generated_tex_scale: DEFAULT_GENERATED_TEX_SCALE,
+            increase_scale_held: false,
+            decrease_scale_held: false,
+        }
+    }
+}
 
 pub fn start_renderer(model_path: &str, texture_path: &str) {
     if let Err(e) = run_renderer(model_path, texture_path) {
@@ -91,11 +117,8 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
     let mut position = Vector3::new(0.0, 0.0, 0.0);
 
     // Start in colored view to match the subject semantics: Enter applies texture.
-    let mut texture_enabled = false;
+    let mut input_state = InputState::default();
     let mut mix_value = 0.0;
-
-    let mut texture_toggle_held = false;
-    let mut color_change_held = false;
 
     while !window.should_close() {
         let current_frame = glfw.get_time() as f32;
@@ -116,12 +139,14 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
             &mut position,
             delta_time,
             &mut our_model,
-            &mut texture_enabled,
-            &mut texture_toggle_held,
-            &mut color_change_held,
+            &mut input_state,
         );
 
-        let target_mix = if texture_enabled { 1.0 } else { 0.0 };
+        let target_mix = if input_state.texture_enabled {
+            1.0
+        } else {
+            0.0
+        };
         let blend_step = TEXTURE_BLEND_SPEED * delta_time;
         if mix_value < target_mix {
             mix_value = (mix_value + blend_step).min(target_mix);
@@ -136,6 +161,7 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
             // Activate shader before writing uniforms.
             our_shader.use_program();
             our_shader.set_float(c_str!("mixValue"), mix_value);
+            our_shader.set_float(c_str!("generatedTexScale"), input_state.generated_tex_scale);
 
             let projection: Matrix4 = Matrix4::perspective(
                 camera.zoom,
@@ -175,9 +201,7 @@ fn process_local_input(
     position: &mut Vector3,
     delta_time: f32,
     our_model: &mut Model,
-    texture_enabled: &mut bool,
-    texture_toggle_held: &mut bool,
-    color_change_held: &mut bool,
+    input_state: &mut InputState,
 ) {
     let velocity = 2.5 * delta_time;
 
@@ -204,13 +228,13 @@ fn process_local_input(
     }
 
     let enter_pressed = window.get_key(Key::Enter) == Action::Press;
-    if enter_pressed && !*texture_toggle_held {
-        *texture_enabled = !*texture_enabled;
+    if enter_pressed && !input_state.texture_toggle_held {
+        input_state.texture_enabled = !input_state.texture_enabled;
     }
-    *texture_toggle_held = enter_pressed;
+    input_state.texture_toggle_held = enter_pressed;
 
     let color_pressed = window.get_key(Key::K) == Action::Press;
-    if color_pressed && !*color_change_held {
+    if color_pressed && !input_state.color_change_held {
         let mut rng = Rng::new();
         our_model.change_color(&Vector3::new(
             rng.gen_range_f32(0.0, 1.1),
@@ -218,5 +242,21 @@ fn process_local_input(
             rng.gen_range_f32(0.0, 1.1),
         ));
     }
-    *color_change_held = color_pressed;
+    input_state.color_change_held = color_pressed;
+
+    let up_pressed = window.get_key(Key::Up) == Action::Press;
+    if up_pressed && !input_state.increase_scale_held {
+        input_state.generated_tex_scale = (input_state.generated_tex_scale
+            + GENERATED_TEX_SCALE_STEP)
+            .clamp(GENERATED_TEX_SCALE_MIN, GENERATED_TEX_SCALE_MAX);
+    }
+    input_state.increase_scale_held = up_pressed;
+
+    let down_pressed = window.get_key(Key::Down) == Action::Press;
+    if down_pressed && !input_state.decrease_scale_held {
+        input_state.generated_tex_scale = (input_state.generated_tex_scale
+            - GENERATED_TEX_SCALE_STEP)
+            .clamp(GENERATED_TEX_SCALE_MIN, GENERATED_TEX_SCALE_MAX);
+    }
+    input_state.decrease_scale_held = down_pressed;
 }

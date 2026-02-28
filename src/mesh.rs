@@ -1,3 +1,4 @@
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_void;
@@ -56,6 +57,7 @@ pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
     pub textures: Vec<Texture>,
+    pub has_uv_mapping: bool,
     pub vao: u32,
 
     // Render Data
@@ -64,11 +66,17 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, textures: Vec<Texture>) -> Mesh {
+    pub fn new(
+        vertices: Vec<Vertex>,
+        indices: Vec<u32>,
+        textures: Vec<Texture>,
+        has_uv_mapping: bool,
+    ) -> Mesh {
         let mut mesh = Mesh {
             vertices,
             indices,
             textures,
+            has_uv_mapping,
             vao: 0,
             vbo: 0,
             ebo: 0,
@@ -120,6 +128,12 @@ impl Mesh {
                 // and finally bind the texture
                 gl::BindTexture(gl::TEXTURE_2D, texture.id);
             }
+
+            let use_generated_mapping = c_str!("useGeneratedMapping");
+            gl::Uniform1i(
+                gl::GetUniformLocation(shader.id, use_generated_mapping.as_ptr()),
+                if self.has_uv_mapping { 0 } else { 1 },
+            );
 
             // draw mesh
             gl::BindVertexArray(self.vao);
