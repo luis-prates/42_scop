@@ -1,28 +1,23 @@
 extern crate glfw;
 
+use std::collections::HashMap;
+
 use glfw::fail_on_errors;
 use glfw::{Action, Key};
 
-use crate::camera;
-use crate::common;
-use crate::math;
-use crate::model;
+use crate::camera::Camera;
+use crate::math::{Matrix4, Point3, Vector3};
+use crate::renderer::input_events::process_events;
+use crate::renderer::mesh_gpu::{GpuTexture, MeshGpu};
+use crate::renderer::shader_program::ShaderProgram;
+use crate::renderer::texture_gpu::upload_bmp_texture;
 use crate::rng::Rng;
-use crate::shader;
+use crate::scene::SceneModel;
 
 use self::glfw::Context;
 
 extern crate gl;
 
-use std::ffi::CStr;
-
-use camera::Camera;
-use common::process_events;
-use math::{Matrix4, Point3, Vector3};
-use model::Model;
-use shader::Shader;
-
-// settings
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
 const TEXTURE_BLEND_SPEED: f32 = 1.5;
@@ -53,14 +48,7 @@ impl Default for InputState {
     }
 }
 
-pub fn start_renderer(model_path: &str, texture_path: &str) {
-    if let Err(e) = run_renderer(model_path, texture_path) {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
-}
-
-fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
+pub fn run(mut scene_model: SceneModel) -> Result<(), String> {
     let mut camera = Camera {
         position: Point3::new(0.0, 0.0, 3.0),
         ..Camera::default()
@@ -69,11 +57,8 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
     let mut first_mouse = true;
     let mut last_x: f32 = SCR_WIDTH as f32 / 2.0;
     let mut last_y: f32 = SCR_HEIGHT as f32 / 2.0;
-
-    // timing
     let mut last_frame: f32 = 0.0;
 
-    // glfw: initialize and configure
     let mut glfw =
         glfw::init(fail_on_errors!()).map_err(|e| format!("Failed to initialize GLFW: {}", e))?;
     glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
@@ -83,7 +68,6 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
 
-    // glfw window creation
     let (mut window, events) = glfw
         .create_window(SCR_WIDTH, SCR_HEIGHT, "42 Scop", glfw::WindowMode::Windowed)
         .ok_or_else(|| "Failed to create GLFW window".to_string())?;
@@ -94,29 +78,21 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
     window.set_scroll_polling(true);
     window.set_cursor_mode(glfw::CursorMode::Disabled);
 
-    // gl: load all OpenGL function pointers
     gl::load_with(|symbol| {
         glfw.get_proc_address_raw(symbol)
-            .ok_or_else(|| format!("Failed to load OpenGL function: {:?}", symbol))
             .map(|ptr| ptr as *const _)
             .unwrap_or(std::ptr::null())
     });
 
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
-        // Disable face culling to render both front and back faces.
         gl::Disable(gl::CULL_FACE);
     }
 
-    let our_shader = Shader::new(
-        "src/shaders/model_loading_42.vs",
-        "src/shaders/model_loading_42.fs",
-    )?;
-    let mut our_model = Model::new(model_path, texture_path)?;
+    let shader = ShaderProgram::new("resources/shaders/model.vs", "resources/shaders/model.fs")?;
+    let mut gpu_meshes = build_gpu_meshes(&scene_model)?;
 
     let mut position = Vector3::new(0.0, 0.0, 0.0);
-
-    // Start in colored view to match the subject semantics: Enter applies texture.
     let mut input_state = InputState::default();
     let mut mix_value = 0.0;
 
@@ -125,7 +101,6 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
         let delta_time = current_frame - last_frame;
         last_frame = current_frame;
 
-        // events
         process_events(
             &events,
             &mut first_mouse,
@@ -134,13 +109,12 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
             &mut camera,
         );
 
-        process_local_input(
-            &mut window,
-            &mut position,
-            delta_time,
-            &mut our_model,
-            &mut input_state,
-        );
+        if let Some(new_color) =
+            process_local_input(&mut window, &mut position, delta_time, &mut input_state)
+        {
+            scene_model.change_color(&new_color);
+            sync_gpu_vertices(&scene_model, &mut gpu_meshes)?;
+        }
 
         let target_mix = if input_state.texture_enabled {
             1.0
@@ -157,36 +131,33 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
         unsafe {
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
 
-            // Activate shader before writing uniforms.
-            our_shader.use_program();
-            our_shader.set_float(c_str!("mixValue"), mix_value);
-            our_shader.set_float(c_str!("generatedTexScale"), input_state.generated_tex_scale);
+        shader.bind();
+        shader.set_float(c_str!("mixValue"), mix_value);
+        shader.set_float(c_str!("generatedTexScale"), input_state.generated_tex_scale);
 
-            let projection: Matrix4 = Matrix4::perspective(
-                camera.zoom,
-                SCR_WIDTH as f32 / SCR_HEIGHT as f32,
-                0.1,
-                100.0,
-            );
-            let view = camera.get_view_matrix();
+        let projection: Matrix4 = Matrix4::perspective(
+            camera.zoom,
+            SCR_WIDTH as f32 / SCR_HEIGHT as f32,
+            0.1,
+            100.0,
+        );
+        let view = camera.get_view_matrix();
 
-            our_shader.set_mat4(c_str!("view"), &view);
-            our_shader.set_mat4(c_str!("projection"), &projection);
+        shader.set_mat4(c_str!("view"), &view);
+        shader.set_mat4(c_str!("projection"), &projection);
 
-            // Render model centered around its geometric center.
-            let (center_x, center_y, center_z) = our_model.get_center_all_axes();
-            let angle = glfw.get_time() as f32 * 50.0;
-            let mut model = Matrix4::from_scale(0.2);
-            model =
-                model * Matrix4::from_translation(Vector3::new(position.x, position.y, position.z));
-            model =
-                model * Matrix4::from_axis_angle(Vector3::new(0.0, 1.0, 0.0).normalize(), angle);
-            model =
-                model * Matrix4::from_translation(Vector3::new(-center_x, -center_y, -center_z));
+        let (center_x, center_y, center_z) = scene_model.get_center_all_axes();
+        let angle = glfw.get_time() as f32 * 50.0;
+        let mut model = Matrix4::from_scale(0.2);
+        model = model * Matrix4::from_translation(Vector3::new(position.x, position.y, position.z));
+        model = model * Matrix4::from_axis_angle(Vector3::new(0.0, 1.0, 0.0).normalize(), angle);
+        model = model * Matrix4::from_translation(Vector3::new(-center_x, -center_y, -center_z));
 
-            our_shader.set_mat4(c_str!("model"), &model);
-            our_model.draw(&our_shader);
+        shader.set_mat4(c_str!("model"), &model);
+        for mesh in &gpu_meshes {
+            mesh.draw(&shader);
         }
 
         window.swap_buffers();
@@ -196,13 +167,57 @@ fn run_renderer(model_path: &str, texture_path: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn build_gpu_meshes(scene_model: &SceneModel) -> Result<Vec<MeshGpu>, String> {
+    let mut texture_cache: HashMap<String, u32> = HashMap::new();
+    let mut gpu_meshes = Vec::with_capacity(scene_model.meshes.len());
+
+    for scene_mesh in &scene_model.meshes {
+        let mut textures = Vec::with_capacity(scene_mesh.textures.len());
+        for texture in &scene_mesh.textures {
+            let id = if let Some(existing) = texture_cache.get(&texture.path) {
+                *existing
+            } else {
+                let uploaded = upload_bmp_texture(&texture.path)?;
+                texture_cache.insert(texture.path.clone(), uploaded);
+                uploaded
+            };
+
+            textures.push(GpuTexture {
+                id,
+                kind: texture.kind.clone(),
+            });
+        }
+
+        let mesh = MeshGpu::new(
+            scene_mesh.vertices.clone(),
+            scene_mesh.indices.clone(),
+            textures,
+            scene_mesh.has_uv_mapping,
+        )?;
+        gpu_meshes.push(mesh);
+    }
+
+    Ok(gpu_meshes)
+}
+
+fn sync_gpu_vertices(scene_model: &SceneModel, gpu_meshes: &mut [MeshGpu]) -> Result<(), String> {
+    if scene_model.meshes.len() != gpu_meshes.len() {
+        return Err("Internal renderer error: scene/gpu mesh count mismatch".to_string());
+    }
+
+    for (scene_mesh, gpu_mesh) in scene_model.meshes.iter().zip(gpu_meshes.iter_mut()) {
+        gpu_mesh.update_vertices(&scene_mesh.vertices);
+    }
+
+    Ok(())
+}
+
 fn process_local_input(
     window: &mut glfw::Window,
     position: &mut Vector3,
     delta_time: f32,
-    our_model: &mut Model,
     input_state: &mut InputState,
-) {
+) -> Option<Vector3> {
     let velocity = 2.5 * delta_time;
 
     if window.get_key(Key::Escape) == Action::Press {
@@ -234,14 +249,16 @@ fn process_local_input(
     input_state.texture_toggle_held = enter_pressed;
 
     let color_pressed = window.get_key(Key::K) == Action::Press;
-    if color_pressed && !input_state.color_change_held {
+    let color_change = if color_pressed && !input_state.color_change_held {
         let mut rng = Rng::new();
-        our_model.change_color(&Vector3::new(
+        Some(Vector3::new(
             rng.gen_range_f32(0.0, 1.1),
             rng.gen_range_f32(0.0, 1.1),
             rng.gen_range_f32(0.0, 1.1),
-        ));
-    }
+        ))
+    } else {
+        None
+    };
     input_state.color_change_held = color_pressed;
 
     let up_pressed = window.get_key(Key::Up) == Action::Press;
@@ -259,4 +276,6 @@ fn process_local_input(
             .clamp(GENERATED_TEX_SCALE_MIN, GENERATED_TEX_SCALE_MAX);
     }
     input_state.decrease_scale_held = down_pressed;
+
+    color_change
 }

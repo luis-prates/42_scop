@@ -1,18 +1,16 @@
 use std::os::raw::c_void;
 
-use crate::bmp_loader;
+use crate::loaders::bmp;
 
-pub fn load_texture_bmp(texture_path: &str) -> Result<u32, String> {
+pub fn upload_bmp_texture(texture_path: &str) -> Result<u32, String> {
     let mut texture_id = 0;
 
-    let img = bmp_loader::open(texture_path)
+    let img = bmp::open(texture_path)
         .map_err(|error| format!("Failed to open BMP texture '{}': {}", texture_path, error))?;
 
     let width = img.width;
     let height = img.height;
 
-    // Convert Vec<Pixel> to flat Vec<u8> for OpenGL.
-    // OpenGL expects continuous RGB bytes, not a struct array.
     let mut rgb_data: Vec<u8> = Vec::with_capacity((width * height * 3) as usize);
     for pixel in &img.data {
         rgb_data.push(pixel.r);
@@ -27,7 +25,6 @@ pub fn load_texture_bmp(texture_path: &str) -> Result<u32, String> {
         let mut previous_unpack_alignment: i32 = 0;
         gl::GetIntegerv(gl::UNPACK_ALIGNMENT, &mut previous_unpack_alignment);
 
-        // Tight RGB rows need 1-byte alignment; default OpenGL unpack alignment is 4.
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
 
         gl::TexImage2D(
@@ -45,7 +42,6 @@ pub fn load_texture_bmp(texture_path: &str) -> Result<u32, String> {
 
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, previous_unpack_alignment);
 
-        // Set texture parameters.
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
         gl::TexParameteri(

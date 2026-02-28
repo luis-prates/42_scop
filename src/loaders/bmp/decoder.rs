@@ -8,7 +8,7 @@ const BMP_HEADER_SIZE: u64 = 14;
 
 // Import structs/functions defined in lib.rs
 use self::BmpErrorKind::*;
-use super::mini_bmp_module::{BmpDibHeader, BmpHeader, BmpVersion, CompressionType, Image, Pixel};
+use super::image::{BmpDibHeader, BmpHeader, BmpVersion, CompressionType, Image, Pixel};
 
 /// A result type, either containing an `Image` or a `BmpError`.
 pub type BmpResult<T> = Result<T, BmpError>;

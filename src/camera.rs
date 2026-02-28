@@ -8,7 +8,7 @@ type Matrix4 = math::Matrix4;
 const YAW: f32 = -90.0;
 const PITCH: f32 = 0.0;
 const SPEED: f32 = 2.5;
-const SENSITIVTY: f32 = 0.1;
+const SENSITIVITY: f32 = 0.1;
 const ZOOM: f32 = 45.0;
 
 pub struct Camera {
@@ -39,7 +39,7 @@ impl Default for Camera {
             yaw: YAW,
             pitch: PITCH,
             movement_speed: SPEED,
-            mouse_sensitivity: SENSITIVTY,
+            mouse_sensitivity: SENSITIVITY,
             zoom: ZOOM,
         };
         camera.update_camera_vectors();

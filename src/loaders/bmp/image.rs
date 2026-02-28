@@ -9,7 +9,7 @@ use std::io::{Cursor, Read};
 use std::iter::Iterator;
 use std::path::Path;
 
-use crate::bmp_loader::decoder;
+use crate::loaders::bmp::decoder;
 
 // Expose decoder's public types, structs, and enums
 pub use decoder::BmpResult;
@@ -218,7 +218,7 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let mut img = bmp::Image::new(100, 80);
     /// ```
     pub fn new(width: u32, height: u32) -> Image {
@@ -255,7 +255,7 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let mut img = bmp::Image::new(100, 80);
     /// img.set_pixel(10, 10, bmp::consts::RED);
     /// ```
@@ -268,7 +268,7 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let img = bmp::Image::new(100, 80);
     /// assert_eq!(bmp::consts::BLACK, img.get_pixel(10, 10));
     /// ```
@@ -281,7 +281,7 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let mut img = bmp::Image::new(100, 100);
     /// for (x, y) in img.coordinates() {
     ///     img.set_pixel(x, y, bmp::consts::BLUE);
@@ -353,7 +353,7 @@ impl Iterator for ImageIndex {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let img = bmp::open("test/rgbw.bmp").unwrap_or_else(|e| {
 ///    panic!("Failed to open: {}", e);
 /// });

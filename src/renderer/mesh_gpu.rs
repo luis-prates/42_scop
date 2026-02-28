@@ -1,78 +1,35 @@
-use std::ffi::CStr;
 use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
-use crate::math;
-use crate::shader;
-
-use math::{Vector2, Vector3};
-use shader::Shader;
-
-// NOTE: without repr(C) the compiler may reorder the fields or use different padding/alignment than C.
-// Depending on how you pass the data to OpenGL, this may be bad. In this case it's not strictly
-// necessary though because of the `offset!` macro used below in setupMesh()
-#[repr(C)]
-pub struct Vertex {
-    // position
-    pub position: Vector3,
-    // normal
-    pub normal: Vector3,
-    // texCoords
-    pub tex_coords: Vector2,
-    // tangent
-    pub tangent: Vector3,
-    // bitangent
-    pub bitangent: Vector3,
-    // color
-    pub color: Vector3,
-    // new color
-    pub new_color: Vector3,
-}
-
-impl Default for Vertex {
-    fn default() -> Self {
-        Vertex {
-            position: Vector3::zero(),
-            normal: Vector3::zero(),
-            tex_coords: Vector2::zero(),
-            tangent: Vector3::zero(),
-            bitangent: Vector3::zero(),
-            color: Vector3::zero(),
-            new_color: Vector3::zero(),
-        }
-    }
-}
+use crate::renderer::shader_program::ShaderProgram;
+use crate::scene::{TextureKind, Vertex};
 
 #[derive(Clone)]
-pub struct Texture {
+pub struct GpuTexture {
     pub id: u32,
-    pub type_: String,
-    pub path: String,
+    pub kind: TextureKind,
 }
 
-pub struct Mesh {
-    // Mesh Data
+pub struct MeshGpu {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
-    pub textures: Vec<Texture>,
+    pub textures: Vec<GpuTexture>,
     pub has_uv_mapping: bool,
     pub vao: u32,
-
-    // Render Data
     vbo: u32,
     ebo: u32,
 }
 
-impl Mesh {
+impl MeshGpu {
     pub fn new(
         vertices: Vec<Vertex>,
         indices: Vec<u32>,
-        textures: Vec<Texture>,
+        textures: Vec<GpuTexture>,
         has_uv_mapping: bool,
-    ) -> Mesh {
-        let mut mesh = Mesh {
+    ) -> Result<Self, String> {
+        let mut mesh = Self {
             vertices,
             indices,
             textures,
@@ -82,60 +39,49 @@ impl Mesh {
             ebo: 0,
         };
 
-        unsafe {
-            mesh.setup_mesh();
-        }
-        mesh
+        mesh.setup_mesh();
+        Ok(mesh)
     }
 
-    pub unsafe fn draw(&self, shader: &Shader) {
+    pub fn draw(&self, shader: &ShaderProgram) {
         unsafe {
-            // bind appropriate textures
             let mut diffuse_nr = 0;
             let mut specular_nr = 0;
             let mut normal_nr = 0;
-            let mut height_nr = 0;
+
             for (i, texture) in self.textures.iter().enumerate() {
-                gl::ActiveTexture(gl::TEXTURE0 + i as u32); // active proper texture unit before binding
-                // retrieve texture number (the N in diffuse_textureN)
-                let name = &texture.type_;
-                let number = match name.as_str() {
-                    "texture_diffuse" => {
+                gl::ActiveTexture(gl::TEXTURE0 + i as u32);
+                let name = texture.kind.shader_uniform_prefix();
+                let number = match texture.kind {
+                    TextureKind::Diffuse => {
                         diffuse_nr += 1;
                         diffuse_nr
                     }
-                    "texture_specular" => {
+                    TextureKind::Specular => {
                         specular_nr += 1;
                         specular_nr
                     }
-                    "texture_normal" => {
+                    TextureKind::Normal => {
                         normal_nr += 1;
                         normal_nr
                     }
-                    "texture_height" => {
-                        height_nr += 1;
-                        height_nr
-                    }
-                    _ => panic!("unknown texture type"),
                 };
-                // now set the sampler to the correct texture unit
-                let sampler = CString::new(format!("{}{}", name, number)).unwrap();
-                // println!("sampler: {}. Shader id is: {}", sampler.to_str().unwrap(), shader.id);
+
+                let sampler = CString::new(format!("{}{}", name, number))
+                    .expect("shader sampler names are static ASCII");
                 gl::Uniform1i(
-                    gl::GetUniformLocation(shader.id, sampler.as_ptr()),
+                    gl::GetUniformLocation(shader.id(), sampler.as_ptr()),
                     i as i32,
                 );
-                // and finally bind the texture
                 gl::BindTexture(gl::TEXTURE_2D, texture.id);
             }
 
             let use_generated_mapping = c_str!("useGeneratedMapping");
             gl::Uniform1i(
-                gl::GetUniformLocation(shader.id, use_generated_mapping.as_ptr()),
+                gl::GetUniformLocation(shader.id(), use_generated_mapping.as_ptr()),
                 if self.has_uv_mapping { 0 } else { 1 },
             );
 
-            // draw mesh
             gl::BindVertexArray(self.vao);
             gl::DrawElements(
                 gl::TRIANGLES,
@@ -145,36 +91,31 @@ impl Mesh {
             );
             gl::BindVertexArray(0);
 
-            // always good practice to set everything back to defaults once configured.
             gl::ActiveTexture(gl::TEXTURE0);
         }
     }
 
-    pub unsafe fn setup_mesh(&mut self) {
+    pub fn update_vertices(&mut self, vertices: &[Vertex]) {
+        self.vertices.clear();
+        self.vertices.extend_from_slice(vertices);
+        self.upload_vertex_buffer();
+    }
+
+    fn setup_mesh(&mut self) {
         unsafe {
             gl::GenVertexArrays(1, &mut self.vao);
             gl::GenBuffers(1, &mut self.vbo);
             gl::GenBuffers(1, &mut self.ebo);
 
             gl::BindVertexArray(self.vao);
-            // load data into vertex buffers
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            // A great thing about structs with repr(C) is that their memory layout is sequential for all its items.
-            // The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
-            // again translates to 3/2 floats which translates to a byte array.
 
-            let size = (self.vertices.len() * size_of::<Vertex>()) as isize;
-            let data = &self.vertices[0] as *const Vertex as *const c_void;
-            gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            upload_buffer_data(gl::ARRAY_BUFFER, &self.vertices);
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
-            let size = (self.indices.len() * size_of::<u32>()) as isize;
-            let data = &self.indices[0] as *const u32 as *const c_void;
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+            upload_buffer_data(gl::ELEMENT_ARRAY_BUFFER, &self.indices);
 
-            // set the vertex attribute pointers
             let size = size_of::<Vertex>() as i32;
-            // vertex Positions
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
@@ -184,7 +125,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, position) as *const c_void,
             );
-            // vertex normals
+
             gl::EnableVertexAttribArray(1);
             gl::VertexAttribPointer(
                 1,
@@ -194,7 +135,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, normal) as *const c_void,
             );
-            // vertex texture coords
+
             gl::EnableVertexAttribArray(2);
             gl::VertexAttribPointer(
                 2,
@@ -204,7 +145,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, tex_coords) as *const c_void,
             );
-            // vertex tangent
+
             gl::EnableVertexAttribArray(3);
             gl::VertexAttribPointer(
                 3,
@@ -214,7 +155,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, tangent) as *const c_void,
             );
-            // vertex bitangent
+
             gl::EnableVertexAttribArray(4);
             gl::VertexAttribPointer(
                 4,
@@ -224,7 +165,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, bitangent) as *const c_void,
             );
-            // vertex color
+
             gl::EnableVertexAttribArray(5);
             gl::VertexAttribPointer(
                 5,
@@ -234,7 +175,7 @@ impl Mesh {
                 size,
                 offset_of!(Vertex, color) as *const c_void,
             );
-            // new vertex color
+
             gl::EnableVertexAttribArray(6);
             gl::VertexAttribPointer(
                 6,
@@ -247,11 +188,31 @@ impl Mesh {
 
             gl::BindVertexArray(0);
         }
-        // create buffers/arrays
+    }
+
+    fn upload_vertex_buffer(&self) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            upload_buffer_data(gl::ARRAY_BUFFER, &self.vertices);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        }
     }
 }
 
-impl Drop for Mesh {
+unsafe fn upload_buffer_data<T>(target: u32, data: &[T]) {
+    let size = (std::mem::size_of_val(data)) as isize;
+    let ptr = if data.is_empty() {
+        ptr::null()
+    } else {
+        data.as_ptr() as *const c_void
+    };
+
+    unsafe {
+        gl::BufferData(target, size, ptr, gl::STATIC_DRAW);
+    }
+}
+
+impl Drop for MeshGpu {
     fn drop(&mut self) {
         unsafe {
             if self.vao != 0 {
