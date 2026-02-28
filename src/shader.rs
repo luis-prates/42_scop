@@ -2,7 +2,6 @@ use std::ffi::{CStr, CString};
 use std::fs::File;
 use std::io::Read;
 use std::ptr;
-use std::str;
 
 use gl::types::*;
 
@@ -115,8 +114,7 @@ impl Shader {
     /// ------------------------------------------------------------------------
     unsafe fn check_compile_errors(&self, shader: u32, type_: &str) -> Result<(), String> {
         let mut success = gl::FALSE as GLint;
-        let mut info_log = Vec::with_capacity(1024);
-        unsafe { info_log.set_len(1023) }; // Reserve space for log, leave room for null terminator
+        let mut info_log = vec![0_u8; 1024];
 
         if type_ != "PROGRAM" {
             unsafe {
@@ -129,9 +127,8 @@ impl Shader {
                         ptr::null_mut(),
                         info_log.as_mut_ptr() as *mut GLchar,
                     );
-                    let error_msg = str::from_utf8(&info_log)
-                        .unwrap_or("Failed to parse shader error log")
-                        .trim_matches('\0');
+                    let error_msg = String::from_utf8_lossy(&info_log);
+                    let error_msg = error_msg.trim_matches('\0');
                     return Err(format!(
                         "Shader compilation error ({}): {}",
                         type_, error_msg
@@ -149,9 +146,8 @@ impl Shader {
                         ptr::null_mut(),
                         info_log.as_mut_ptr() as *mut GLchar,
                     );
-                    let error_msg = str::from_utf8(&info_log)
-                        .unwrap_or("Failed to parse program error log")
-                        .trim_matches('\0');
+                    let error_msg = String::from_utf8_lossy(&info_log);
+                    let error_msg = error_msg.trim_matches('\0');
                     return Err(format!("Program linking error ({}): {}", type_, error_msg));
                 }
             };

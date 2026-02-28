@@ -55,6 +55,7 @@ pub enum BmpErrorKind {
     UnsupportedCompressionType,
     UnsupportedBmpVersion,
     UnsupportedHeader,
+    InvalidData,
     BmpIoError(io::Error),
 }
 
@@ -65,6 +66,7 @@ impl AsRef<str> for BmpErrorKind {
             UnsupportedBitsPerPixel => "Unsupported bits per pixel",
             UnsupportedCompressionType => "Unsupported compression type",
             UnsupportedBmpVersion => "Unsupported BMP version",
+            InvalidData => "Invalid BMP data",
             _ => "BMP Error",
         }
     }
@@ -244,16 +246,56 @@ fn read_indexes(
     let mut data = Vec::with_capacity(height * width);
     // Number of bytes to read from each row, varies based on bits_per_pixel
     let bytes_per_row = (width as f64 / (8.0 / bpp as f64)).ceil() as usize;
+    let padding = match bytes_per_row % 4 {
+        0 => 0,
+        other => 4 - other,
+    };
+    let row_stride = bytes_per_row + padding;
+
     for y in 0..height {
-        let padding = match bytes_per_row % 4 {
-            0 => 0,
-            other => 4 - other,
-        };
-        let start = offset + (bytes_per_row + padding) * y;
-        let bytes = &bmp_data[start..start + bytes_per_row];
+        let row_offset = row_stride.checked_mul(y).ok_or_else(|| {
+            BmpError::new(
+                InvalidData,
+                "Indexed BMP row stride overflow while decoding image data",
+            )
+        })?;
+        let start = offset.checked_add(row_offset).ok_or_else(|| {
+            BmpError::new(
+                InvalidData,
+                "Indexed BMP offset overflow while decoding image data",
+            )
+        })?;
+        let end = start.checked_add(bytes_per_row).ok_or_else(|| {
+            BmpError::new(
+                InvalidData,
+                "Indexed BMP row end overflow while decoding image data",
+            )
+        })?;
+        if end > bmp_data.len() {
+            return Err(BmpError::new(
+                InvalidData,
+                format!(
+                    "Indexed BMP row {} exceeds input bounds (end={}, len={})",
+                    y,
+                    end,
+                    bmp_data.len()
+                ),
+            ));
+        }
+        let bytes = &bmp_data[start..end];
 
         for i in bit_index(bytes, bpp as usize, width) {
-            data.push(palette[i]);
+            let color = palette.get(i).copied().ok_or_else(|| {
+                BmpError::new(
+                    InvalidData,
+                    format!(
+                        "Indexed BMP palette index {} out of bounds (palette size={})",
+                        i,
+                        palette.len()
+                    ),
+                )
+            })?;
+            data.push(color);
         }
     }
     Ok(data)

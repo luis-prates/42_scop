@@ -1,2 +1,9 @@
 /target
 .idea
+
+AGENTS.md
+ARCHITECTURE.md
+tasks/
+scripts/
+docs/
+.codex/

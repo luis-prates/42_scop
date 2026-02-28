@@ -100,6 +100,23 @@ fmt:
 	@echo "$(GREEN)Formatting code...$(NC)"
 	@$(CARGO) fmt
 
+# Documentation lint
+doclint:
+	@echo "$(GREEN)Linting project docs...$(NC)"
+	@python3 scripts/doc_lint.py
+
+# Agent guardrail checks
+agent-check:
+	@echo "$(GREEN)Running agent check script...$(NC)"
+	@bash scripts/agent_check.sh
+
+# One-shot verification
+verify:
+	@echo "$(GREEN)Running one-shot verification...$(NC)"
+	@$(MAKE) doclint
+	@bash scripts/agent_check.sh
+	@echo "$(GREEN)Verification complete$(NC)"
+
 # Show help
 help:
 	@echo "$(GREEN)scop_42 Makefile$(NC)"
@@ -123,7 +140,9 @@ help:
 	@echo "$(YELLOW)Development targets:$(NC)"
 	@echo "  make test       - Run tests"
 	@echo "  make fmt        - Format code"
+	@echo "  make doclint    - Lint required docs and reviews banner rules"
+	@echo "  make verify     - Run doclint + fmt/check (+clippy when available)"
 	@echo "  make help       - Show this help"
 
 .PHONY: all release run run-release run-default run-release-default \
-        check test clean fclean re fmt clippy help
+        check test clean fclean re fmt clippy doclint agent-check verify help
