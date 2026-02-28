@@ -1,6 +1,7 @@
 mod index;
 mod parse_mtl;
 mod parse_obj;
+mod triangulate;
 mod types;
 
 pub use parse_obj::load;

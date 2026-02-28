@@ -5,6 +5,7 @@ use std::path::Path;
 
 use super::index::{FaceVertex, parse_f32_component, parse_face_vertex};
 use super::parse_mtl::load_mtl;
+use super::triangulate::{TriangulationOutcome, triangulate_face};
 use super::types::{ObjLoadOptions, ObjMeshData, ObjObjectData, ObjSceneData};
 
 type MaterialFaces = HashMap<Option<String>, Vec<Vec<FaceVertex>>>;
@@ -98,13 +99,33 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
                     face.push(parsed);
                 }
 
+                if face.len() < 3 {
+                    return Err(format!(
+                        "OBJ line {}: face requires at least 3 vertices",
+                        line_number
+                    ));
+                }
+
                 if options.triangulate && face.len() > 3 {
-                    for i in 1..face.len() - 1 {
-                        let tri = vec![face[0], face[i], face[i + 1]];
-                        material_faces
-                            .entry(current_material.clone())
-                            .or_default()
-                            .push(tri);
+                    match triangulate_face(&face, &positions) {
+                        TriangulationOutcome::Robust(triangles) => {
+                            for [a, b, c] in triangles {
+                                let tri = vec![face[a], face[b], face[c]];
+                                material_faces
+                                    .entry(current_material.clone())
+                                    .or_default()
+                                    .push(tri);
+                            }
+                        }
+                        TriangulationOutcome::FallbackFan => {
+                            for i in 1..face.len() - 1 {
+                                let tri = vec![face[0], face[i], face[i + 1]];
+                                material_faces
+                                    .entry(current_material.clone())
+                                    .or_default()
+                                    .push(tri);
+                            }
+                        }
                     }
                 } else {
                     if !options.triangulate && face.len() != 3 {
@@ -334,6 +355,63 @@ f 1 2 3
             .expect("MatB should be loaded");
         assert_eq!(scene.objects.len(), 1);
         assert_eq!(scene.objects[0].mesh.material_id, Some(mat_b_index));
+
+        fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
+    }
+
+    #[test]
+    fn triangulates_concave_face_in_obj() {
+        let dir = unique_temp_dir("scop_obj_concave_face");
+        let obj_path = dir.join("concave.obj");
+        let obj_data = "\
+v 0 0 0
+v 2 0 0
+v 2 1 0
+v 1 0.4 0
+v 0 1 0
+f 1 2 3 4 5
+";
+        fs::write(&obj_path, obj_data).expect("failed to write OBJ fixture");
+
+        let scene = load(
+            &obj_path,
+            &ObjLoadOptions {
+                triangulate: true,
+                single_index: false,
+            },
+        )
+        .expect("concave face OBJ should parse and triangulate");
+
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].mesh.indices.len(), 9);
+
+        fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
+    }
+
+    #[test]
+    fn triangulates_noncoplanar_face_in_obj() {
+        let dir = unique_temp_dir("scop_obj_noncoplanar_face");
+        let obj_path = dir.join("noncoplanar.obj");
+        let obj_data = "\
+v 0 0 0
+v 1 0 0
+v 1 1 0.2
+v 0 1 0
+f 1 2 3 4
+";
+        fs::write(&obj_path, obj_data).expect("failed to write OBJ fixture");
+
+        let scene = load(
+            &obj_path,
+            &ObjLoadOptions {
+                triangulate: true,
+                single_index: false,
+            },
+        )
+        .expect("non-coplanar face OBJ should parse and triangulate");
+
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].mesh.indices.len(), 6);
 
         fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
     }
