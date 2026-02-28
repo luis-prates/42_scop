@@ -218,8 +218,12 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let mut img = bmp::Image::new(100, 80);
+    /// ```
+    /// use scop_42::loaders::bmp::image::Image;
+    ///
+    /// let img = Image::new(100, 80);
+    /// assert_eq!(100, img.get_width());
+    /// assert_eq!(80, img.get_height());
     /// ```
     pub fn new(width: u32, height: u32) -> Image {
         let mut data = Vec::with_capacity((width * height) as usize);
@@ -255,9 +259,12 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let mut img = bmp::Image::new(100, 80);
-    /// img.set_pixel(10, 10, bmp::consts::RED);
+    /// ```
+    /// use scop_42::loaders::bmp::image::{Image, Pixel};
+    ///
+    /// let mut img = Image::new(100, 80);
+    /// img.set_pixel(10, 10, Pixel::new(255, 0, 0));
+    /// assert_eq!(Pixel::new(255, 0, 0), img.get_pixel(10, 10));
     /// ```
     #[inline]
     pub fn set_pixel(&mut self, x: u32, y: u32, val: Pixel) {
@@ -268,9 +275,11 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let img = bmp::Image::new(100, 80);
-    /// assert_eq!(bmp::consts::BLACK, img.get_pixel(10, 10));
+    /// ```
+    /// use scop_42::loaders::bmp::image::{Image, Pixel};
+    ///
+    /// let img = Image::new(100, 80);
+    /// assert_eq!(Pixel::new(0, 0, 0), img.get_pixel(10, 10));
     /// ```
     #[inline]
     pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
@@ -281,11 +290,15 @@ impl Image {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let mut img = bmp::Image::new(100, 100);
+    /// ```
+    /// use scop_42::loaders::bmp::image::{Image, Pixel};
+    ///
+    /// let mut img = Image::new(100, 100);
     /// for (x, y) in img.coordinates() {
-    ///     img.set_pixel(x, y, bmp::consts::BLUE);
+    ///     img.set_pixel(x, y, Pixel::new(0, 0, 255));
     /// }
+    ///
+    /// assert_eq!(Pixel::new(0, 0, 255), img.get_pixel(0, 0));
     /// ```
     #[inline]
     pub fn coordinates(&self) -> ImageIndex {
@@ -353,10 +366,12 @@ impl Iterator for ImageIndex {
 ///
 /// # Example
 ///
-/// ```ignore
-/// let img = bmp::open("test/rgbw.bmp").unwrap_or_else(|e| {
-///    panic!("Failed to open: {}", e);
-/// });
+/// ```
+/// use scop_42::loaders::bmp::open;
+///
+/// let img = open("resources/textures/brickwall.bmp").expect("Failed to open BMP");
+/// assert!(img.width > 0);
+/// assert!(img.height > 0);
 /// ```
 pub fn open<P: AsRef<Path>>(path: P) -> BmpResult<Image> {
     let mut f = fs::File::open(path)?;
