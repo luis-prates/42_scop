@@ -64,25 +64,32 @@ pub struct SceneMesh {
 pub struct SceneModel {
     pub meshes: Vec<SceneMesh>,
     pub base_color: Vector3,
+    center: Vector3,
 }
 
 impl SceneModel {
     pub fn new(mut meshes: Vec<SceneMesh>, base_color: Vector3) -> Self {
         for mesh in &mut meshes {
-            coloring::apply_face_shading(&mut mesh.vertices, &base_color);
+            coloring::apply_face_shading(&mut mesh.vertices, &mesh.indices, &base_color);
         }
 
-        Self { meshes, base_color }
+        let (center_x, center_y, center_z) = bounds::center_all_axes(&meshes);
+
+        Self {
+            meshes,
+            base_color,
+            center: Vector3::new(center_x, center_y, center_z),
+        }
     }
 
     pub fn get_center_all_axes(&self) -> (f32, f32, f32) {
-        bounds::center_all_axes(&self.meshes)
+        (self.center.x, self.center.y, self.center.z)
     }
 
     pub fn change_color(&mut self, new_color: &Vector3) {
         self.base_color = *new_color;
         for mesh in &mut self.meshes {
-            coloring::apply_new_color(&mut mesh.vertices, new_color);
+            coloring::apply_new_color(&mut mesh.vertices, &mesh.indices, new_color);
         }
     }
 }
@@ -92,6 +99,7 @@ impl Default for SceneModel {
         Self {
             meshes: Vec::new(),
             base_color: Vector3::zero(),
+            center: Vector3::zero(),
         }
     }
 }

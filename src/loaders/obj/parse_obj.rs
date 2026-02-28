@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use super::index::{FaceVertex, directive_value, parse_f32_component, parse_face_vertex};
+use super::index::{FaceVertex, parse_f32_component, parse_face_vertex};
 use super::parse_mtl::load_mtl;
 use super::types::{ObjLoadOptions, ObjMeshData, ObjObjectData, ObjSceneData};
 
@@ -20,7 +20,7 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
 
     let mut current_material: Option<String> = None;
     let mut material_faces: MaterialFaces = HashMap::new();
-    let mut mtl_file: Option<String> = None;
+    let mut mtl_files: Vec<String> = Vec::new();
 
     let _ = options.single_index;
 
@@ -85,6 +85,9 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
 
                 let mut face = Vec::with_capacity(parts.len() - 1);
                 for item in parts.iter().skip(1) {
+                    if item.starts_with('#') {
+                        break;
+                    }
                     let parsed = parse_face_vertex(
                         item,
                         line_number,
@@ -117,26 +120,34 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
                 }
             }
             "usemtl" => {
-                let material_name = directive_value(line, "usemtl", line_number)?;
+                let material_name =
+                    collect_directive_values(parts.as_slice(), "usemtl", line_number)?
+                        .into_iter()
+                        .next()
+                        .ok_or_else(|| {
+                            format!(
+                                "Line {}: directive '{}' is missing a required value",
+                                line_number, "usemtl"
+                            )
+                        })?;
                 current_material = Some(material_name.to_string());
             }
             "mtllib" => {
-                let file_name = directive_value(line, "mtllib", line_number)?;
-                mtl_file = Some(file_name.to_string());
+                let file_names = collect_directive_values(parts.as_slice(), "mtllib", line_number)?;
+                mtl_files.extend(file_names.into_iter().map(str::to_string));
             }
             _ => {}
         }
     }
 
-    let materials = if let Some(mtl_filename) = mtl_file {
+    let mut materials = Vec::new();
+    for mtl_filename in mtl_files {
         let mtl_path = path
             .parent()
             .unwrap_or_else(|| Path::new(""))
             .join(mtl_filename);
-        load_mtl(&mtl_path)?
-    } else {
-        Vec::new()
-    };
+        materials.extend(load_mtl(&mtl_path)?);
+    }
 
     let material_map: HashMap<String, usize> = materials
         .iter()
@@ -156,7 +167,6 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
             ..Default::default()
         };
 
-        let mut vertex_map: HashMap<FaceVertex, u32> = HashMap::new();
         let mut next_index = 0u32;
         let mut vertex_texcoords: Vec<Option<[f32; 2]>> = Vec::new();
 
@@ -169,30 +179,19 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
             }
 
             for &(pos_idx, tex_idx, norm_idx) in &face {
-                let vertex_key: FaceVertex = (pos_idx, tex_idx, norm_idx);
+                let position = positions[pos_idx];
+                mesh.positions.extend_from_slice(&position);
 
-                let index = if let Some(&idx) = vertex_map.get(&vertex_key) {
-                    idx
-                } else {
-                    let idx = next_index;
-                    next_index += 1;
+                let normal = norm_idx
+                    .map(|normal_idx| normals[normal_idx])
+                    .unwrap_or([0.0, 0.0, 0.0]);
+                mesh.normals.extend_from_slice(&normal);
 
-                    let position = positions[pos_idx];
-                    mesh.positions.extend_from_slice(&position);
+                let texcoord = tex_idx.map(|texcoord_idx| texcoords[texcoord_idx]);
+                vertex_texcoords.push(texcoord);
 
-                    let normal = norm_idx
-                        .map(|normal_idx| normals[normal_idx])
-                        .unwrap_or([0.0, 0.0, 0.0]);
-                    mesh.normals.extend_from_slice(&normal);
-
-                    let texcoord = tex_idx.map(|texcoord_idx| texcoords[texcoord_idx]);
-                    vertex_texcoords.push(texcoord);
-
-                    vertex_map.insert(vertex_key, idx);
-                    idx
-                };
-
-                mesh.indices.push(index);
+                mesh.indices.push(next_index);
+                next_index += 1;
             }
         }
 
@@ -207,4 +206,135 @@ pub fn load(path: &Path, options: &ObjLoadOptions) -> Result<ObjSceneData, Strin
     }
 
     Ok(ObjSceneData { objects, materials })
+}
+
+fn collect_directive_values<'a>(
+    parts: &[&'a str],
+    directive: &str,
+    line_number: usize,
+) -> Result<Vec<&'a str>, String> {
+    if parts.first().copied() != Some(directive) {
+        return Err(format!(
+            "Line {}: expected directive '{}'",
+            line_number, directive
+        ));
+    }
+
+    let mut values = Vec::new();
+    for token in parts.iter().skip(1) {
+        if token.starts_with('#') {
+            break;
+        }
+        values.push(*token);
+    }
+
+    if values.is_empty() {
+        return Err(format!(
+            "Line {}: directive '{}' is missing a required value",
+            line_number, directive
+        ));
+    }
+
+    Ok(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::load;
+    use crate::loaders::obj::ObjLoadOptions;
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let dir = env::temp_dir().join(format!("{}_{}_{}", prefix, process::id(), nanos));
+        fs::create_dir_all(&dir).expect("failed to create temporary test directory");
+        dir
+    }
+
+    #[test]
+    fn parses_face_line_with_inline_comment() {
+        let dir = unique_temp_dir("scop_obj_inline_comment");
+        let obj_path = dir.join("inline_comment.obj");
+        let obj_data = "\
+v 0 0 0
+v 1 0 0
+v 0 1 0
+f 1 2 3 # triangle
+";
+        fs::write(&obj_path, obj_data).expect("failed to write OBJ fixture");
+
+        let scene = load(
+            &obj_path,
+            &ObjLoadOptions {
+                triangulate: true,
+                single_index: false,
+            },
+        )
+        .expect("OBJ with inline face comment should parse");
+
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].mesh.indices, vec![0, 1, 2]);
+
+        fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
+    }
+
+    #[test]
+    fn parses_multiple_mtllib_entries() {
+        let dir = unique_temp_dir("scop_obj_multi_mtllib");
+        let obj_path = dir.join("multi_mtllib.obj");
+        fs::write(
+            dir.join("a.mtl"),
+            "\
+newmtl MatA
+",
+        )
+        .expect("failed to write a.mtl");
+        fs::write(
+            dir.join("b.mtl"),
+            "\
+newmtl MatB
+",
+        )
+        .expect("failed to write b.mtl");
+        let obj_data = "\
+mtllib a.mtl b.mtl
+usemtl MatB
+v 0 0 0
+v 1 0 0
+v 0 1 0
+f 1 2 3
+";
+        fs::write(&obj_path, obj_data).expect("failed to write OBJ fixture");
+
+        let scene = load(
+            &obj_path,
+            &ObjLoadOptions {
+                triangulate: true,
+                single_index: false,
+            },
+        )
+        .expect("OBJ with multiple mtllib files should parse");
+
+        assert_eq!(scene.materials.len(), 2);
+        assert!(scene.materials.iter().any(|mat| mat.name == "MatA"));
+        assert!(scene.materials.iter().any(|mat| mat.name == "MatB"));
+
+        let mat_b_index = scene
+            .materials
+            .iter()
+            .position(|mat| mat.name == "MatB")
+            .expect("MatB should be loaded");
+        assert_eq!(scene.objects.len(), 1);
+        assert_eq!(scene.objects[0].mesh.material_id, Some(mat_b_index));
+
+        fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
+    }
 }

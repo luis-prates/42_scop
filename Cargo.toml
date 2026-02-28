@@ -7,7 +7,7 @@ edition = "2024"
 
 [dependencies]
 gl = "0.14.0"
-glfw = "0.60.0"
+glfw = { version = "0.60.0", default-features = false, features = ["prebuilt-libs", "raw-window-handle-v0-6", "wayland", "x11"] }
 
 [profile.release]
 opt-level = 1

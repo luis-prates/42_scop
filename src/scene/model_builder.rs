@@ -98,53 +98,43 @@ pub fn build_scene_model(
         }
 
         let mut textures = Vec::new();
-        if let Some(material_id) = mesh.material_id {
-            let material = obj_scene.materials.get(material_id).ok_or_else(|| {
+        let material = if let Some(material_id) = mesh.material_id {
+            Some(obj_scene.materials.get(material_id).ok_or_else(|| {
                 format!(
                     "OBJ mesh references unknown material id {} while loading {}",
                     material_id, model_path
                 )
-            })?;
-
-            match &material.diffuse_texture {
-                Some(diffuse_texture) if !diffuse_texture.is_empty() => {
-                    let diffuse_path = resolve_material_path(&model_dir, diffuse_texture)?;
-                    textures.push(SceneTextureRef {
-                        path: diffuse_path,
-                        kind: TextureKind::Diffuse,
-                    });
-                }
-                _ => {
-                    textures.push(SceneTextureRef {
-                        path: fallback_texture_path.to_string(),
-                        kind: TextureKind::Diffuse,
-                    });
-                }
-            }
-
-            if let Some(specular_texture) = &material.specular_texture
-                && !specular_texture.is_empty()
-            {
-                let specular_path = resolve_material_path(&model_dir, specular_texture)?;
-                textures.push(SceneTextureRef {
-                    path: specular_path,
-                    kind: TextureKind::Specular,
-                });
-            }
-
-            if let Some(normal_texture) = &material.normal_texture
-                && !normal_texture.is_empty()
-            {
-                let normal_path = resolve_material_path(&model_dir, normal_texture)?;
-                textures.push(SceneTextureRef {
-                    path: normal_path,
-                    kind: TextureKind::Normal,
-                });
-            }
+            })?)
         } else {
+            None
+        };
+
+        let diffuse_path =
+            resolve_diffuse_texture_path(&model_dir, fallback_texture_path, material, model_path)?;
+        textures.push(SceneTextureRef {
+            path: diffuse_path,
+            kind: TextureKind::Diffuse,
+        });
+
+        if let Some(specular_path) = material
+            .and_then(|mat| mat.specular_texture.as_deref())
+            .filter(|path| !path.is_empty())
+            .and_then(|path| resolve_optional_bmp_material_path(&model_dir, path))
+        {
             textures.push(SceneTextureRef {
-                path: fallback_texture_path.to_string(),
-                kind: TextureKind::Diffuse,
+                path: specular_path,
+                kind: TextureKind::Specular,
+            });
+        }
+
+        if let Some(normal_path) = material
+            .and_then(|mat| mat.normal_texture.as_deref())
+            .filter(|path| !path.is_empty())
+            .and_then(|path| resolve_optional_bmp_material_path(&model_dir, path))
+        {
+            textures.push(SceneTextureRef {
+                path: normal_path,
+                kind: TextureKind::Normal,
             });
         }
 
@@ -164,4 +154,110 @@ fn resolve_material_path(base_dir: &Path, relative_path: &str) -> Result<String,
     path.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| format!("Invalid UTF-8 in material texture path: {}", path.display()))
+}
+
+fn resolve_optional_bmp_material_path(base_dir: &Path, relative_path: &str) -> Option<String> {
+    if is_bmp_path(relative_path) {
+        resolve_material_path(base_dir, relative_path).ok()
+    } else {
+        None
+    }
+}
+
+fn resolve_diffuse_texture_path(
+    model_dir: &Path,
+    fallback_texture_path: &str,
+    material: Option<&obj::ObjMaterialData>,
+    model_path: &str,
+) -> Result<String, String> {
+    if !fallback_texture_path.is_empty() {
+        return Ok(fallback_texture_path.to_string());
+    }
+
+    if let Some(diffuse_texture) = material
+        .and_then(|mat| mat.diffuse_texture.as_deref())
+        .filter(|texture| !texture.is_empty())
+    {
+        if !is_bmp_path(diffuse_texture) {
+            return Err(format!(
+                "Material diffuse texture for '{}' must be a .bmp file when no CLI fallback texture is provided: {}",
+                model_path, diffuse_texture
+            ));
+        }
+        return resolve_material_path(model_dir, diffuse_texture);
+    }
+
+    Err(format!(
+        "No diffuse texture available for '{}' (expected CLI fallback BMP or material map_Kd BMP)",
+        model_path
+    ))
+}
+
+fn is_bmp_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("bmp"))
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::build_scene_model;
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let dir = env::temp_dir().join(format!("{}_{}_{}", prefix, process::id(), nanos));
+        fs::create_dir_all(&dir).expect("failed to create temporary test directory");
+        dir
+    }
+
+    #[test]
+    fn cli_fallback_diffuse_texture_overrides_material_map_kd() {
+        let dir = unique_temp_dir("scop_model_builder_fallback");
+        let obj_path = dir.join("mesh.obj");
+        fs::write(
+            dir.join("mesh.mtl"),
+            "\
+newmtl Mat
+map_Kd texture.png
+",
+        )
+        .expect("failed to write MTL fixture");
+        fs::write(
+            &obj_path,
+            "\
+mtllib mesh.mtl
+usemtl Mat
+v 0 0 0
+v 1 0 0
+v 0 1 0
+f 1 2 3
+",
+        )
+        .expect("failed to write OBJ fixture");
+
+        let fallback_path = "resources/textures/brickwall.bmp";
+        let scene = build_scene_model(
+            obj_path
+                .to_str()
+                .expect("temporary path should be valid UTF-8"),
+            fallback_path,
+        )
+        .expect("scene should build with CLI fallback texture");
+
+        assert_eq!(scene.meshes.len(), 1);
+        assert_eq!(scene.meshes[0].textures[0].path, fallback_path);
+
+        fs::remove_dir_all(&dir).expect("failed to cleanup temp directory");
+    }
 }

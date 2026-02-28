@@ -137,12 +137,10 @@ pub fn run(mut scene_model: SceneModel) -> Result<(), String> {
         shader.set_float(c_str!("mixValue"), mix_value);
         shader.set_float(c_str!("generatedTexScale"), input_state.generated_tex_scale);
 
-        let projection: Matrix4 = Matrix4::perspective(
-            camera.zoom,
-            SCR_WIDTH as f32 / SCR_HEIGHT as f32,
-            0.1,
-            100.0,
-        );
+        let (framebuffer_width, framebuffer_height) = window.get_framebuffer_size();
+        let clamped_height = framebuffer_height.max(1);
+        let aspect_ratio = framebuffer_width.max(1) as f32 / clamped_height as f32;
+        let projection: Matrix4 = Matrix4::perspective(camera.zoom, aspect_ratio, 0.1, 100.0);
         let view = camera.get_view_matrix();
 
         shader.set_mat4(c_str!("view"), &view);
@@ -152,7 +150,7 @@ pub fn run(mut scene_model: SceneModel) -> Result<(), String> {
         let angle = glfw.get_time() as f32 * 50.0;
         let mut model = Matrix4::from_scale(0.2);
         model = model * Matrix4::from_translation(Vector3::new(position.x, position.y, position.z));
-        model = model * Matrix4::from_axis_angle(Vector3::new(0.0, 1.0, 0.0).normalize(), angle);
+        model = model * Matrix4::from_axis_angle(Vector3::unit_y(), angle);
         model = model * Matrix4::from_translation(Vector3::new(-center_x, -center_y, -center_z));
 
         shader.set_mat4(c_str!("model"), &model);
